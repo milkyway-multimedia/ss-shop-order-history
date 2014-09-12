@@ -1,0 +1,11 @@
+---
+Name: shop-order-history--extensions
+Before: 'shop/*'
+---
+Order:
+  extensions:
+    - Milkyway\SS\Shop\OrderHistory\Extensions\Order
+
+OrderStatusLog:
+  extensions:
+    - Milkyway\SS\Shop\OrderHistory\Extensions\OrderStatusLog

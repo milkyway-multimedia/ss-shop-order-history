@@ -1,0 +1,25 @@
+{
+	"name"       : "milkyway-multimedia/ss-shop-order-history",
+	"description": "A basic history and communication record for orders",
+	"type"       : "silverstripe-module",
+	"keywords"   : [
+		"silverstripe",
+		"mwm",
+		"shop",
+		"ecommerce",
+		"orders"
+	],
+	"license"    : "MIT",
+	"authors"    : [
+		{
+			"name" : "Mellisa Hankins",
+			"email": "mell@milkywaymultimedia.com.au"
+		}
+	],
+	"require"    : {
+		"silverstripe/framework": "~3.1"
+	},
+	"extra"      : {
+		"installer-name": "shop-order-history"
+	}
+}
