@@ -10,20 +10,34 @@
 class Order extends \DataExtension {
 	protected $workingLogs = array();
 
+	public function updateCMSFields(\FieldList $fields) {
+		if(!$this->owner->IsCart())
+			$fields->replaceField('Status', \ReadonlyField::create('READONLY-Status', 'Status', $this->owner->OrderStatusLogs()->sort('Created', 'DESC')->first()->Status)->addExtraClass('important'));
+
+		$fields->addFieldsToTab('Root.Logs', [
+			\GridField::create(
+				'OrderStatusLogs',
+				'History',
+				$this->owner->OrderStatusLogs(),
+				\GridFieldConfig_RecordViewer::create()
+			)
+		]);
+	}
+
 	public function onStartOrder() {
-		$this->compileChangesAndLog(__FUNCTION__);
+		$this->compileChangesAndLog(__FUNCTION__, [], true);
 	}
 
 	public function onPlaceOrder() {
-		$this->compileChangesAndLog(__FUNCTION__);
+		$this->compileChangesAndLog(__FUNCTION__, [], true);
 	}
 
 	public function onPayment() {
-		$this->compileChangesAndLog(__FUNCTION__);
+		$this->compileChangesAndLog(__FUNCTION__, [], true);
 	}
 
 	public function onPaid() {
-		$this->compileChangesAndLog(__FUNCTION__);
+		$this->compileChangesAndLog(__FUNCTION__, [], true);
 	}
 
 	public function afterAdd($item, $buyable, $quantity, $filter) {
@@ -81,13 +95,22 @@ class Order extends \DataExtension {
 			$this->owner->extend('onUpdate'.key($changedRelations), reset($changedRelations));
 	}
 
-	protected function compileChangesAndLog($event, $additionalObjects = []) {
+	protected function compileChangesAndLog($event, $additionalObjects = [], $force = false) {
 		if(!$this->owner->ID) return;
 
 		$log = \OrderStatusLog::create();
 
 		// Always record a status change
-		if($this->owner->isChanged('Status') || ($this->owner->OrderStatusLogs()->count() <= $log->config()->max_records_per_order) && !in_array($event, $log->config()->ignored_events)) {
+		if($this->owner->isChanged('Status') || !in_array($event, (array)$log->config()->ignored_events)) {
+			$max = $log->config()->max_records_per_order;
+			$count = $this->owner->OrderStatusLogs()->filter('Status', OrderStatusLog::GENERIC_STATUS)->count();
+
+			// Clean if its over the max limit of history allowed
+			if($max && $count >= $max) {
+				$items = $this->owner->OrderStatusLogs()->filter('Status', OrderStatusLog::GENERIC_STATUS)->sort('Created DESC')->limit(50)->column('ID');
+				$this->owner->OrderStatusLogs()->filter(['Status' => OrderStatusLog::GENERIC_STATUS, 'ID:not' => $items])->removeAll();
+			}
+
 			$log->OrderID = $this->owner->ID;
 
 			$changes = $this->owner->getChangedFields(false, 2);
@@ -99,10 +122,12 @@ class Order extends \DataExtension {
 					$changes[$key] = $object;
 			}
 
-			$log->log($event, ['ChangeLog' => $changes]);
+			if($force || !empty($changes)) {
+				$log->log($event, ['ChangeLog' => $changes]);
 
-			if($log->ID)
-				$this->workingLogs[] = $log;
+				if($log->ID)
+					$this->workingLogs[] = $log;
+			}
 			else
 				$log->destroy();
 		}

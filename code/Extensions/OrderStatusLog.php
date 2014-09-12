@@ -18,6 +18,8 @@ class OrderStatusLog extends \DataExtension {
 		'Changes' => 'Text',
 	];
 
+	private static $default_sort = 'Created DESC';
+
 	private static $status_mapping_for_events = [
 		'onStartOrder' => 'Started',
 		'onPlaceOrder' => 'Placed',
@@ -31,25 +33,21 @@ class OrderStatusLog extends \DataExtension {
 	 * This only applies to automatic logs, logs entered manually in the CMS will always be saved */
 	private static $max_records_per_order = 50;
 
-	public function log($event, $order, $params = [], $write = true) {
-		$log = \OrderStatusLog::create();
-		$log->OrderID = $order->ID;
+	// This is the generic status of an order, and is reserved for automatic updates
+	const GENERIC_STATUS = 'Updated';
 
-		if(isset($log->config()->status_mapping_for_events[$event]))
-			$log->Status = _t('OrderHistory.STATUS-'.$event, $log->config()->status_mapping_for_events[$event]);
+	public function log($event, $params = [], $write = true) {
+		if(isset($this->owner->config()->status_mapping_for_events[$event]))
+			$this->owner->Status = _t('OrderHistory.STATUS-'.$event, $this->owner->config()->status_mapping_for_events[$event]);
 		else
-			$log->Status = _t('OrderHistory.STATUS-updated', 'Updated');
+			$this->owner->Status = self::GENERIC_STATUS;
 
-		$log->castedUpdate($params);
+		$this->owner->castedUpdate($params);
 
-		if($write) {
-			if($order->OrderStatusLogs()->count() <= $log->config()->max_records_per_order)
-				$log->write();
-			else
-				return null;
-		}
+		if($write)
+			$this->owner->write();
 
-		return $log;
+		return $this->owner;
 	}
 
 	public function setChangeLog($data) {
@@ -58,5 +56,10 @@ class OrderStatusLog extends \DataExtension {
 
 	public function getChangeLog() {
 		return unserialize($this->owner->Changes);
+	}
+
+	public function onBeforeWrite() {
+		if(!$this->owner->Title)
+			$this->owner->Title = $this->owner->Status;
 	}
 } 
