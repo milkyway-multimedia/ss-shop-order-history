@@ -8,11 +8,15 @@
  */
 
 class Order extends \DataExtension {
-	protected $workingLogs = array();
+	protected $workingLogs = [];
+
+	public function getState() {
+		return $this->owner->OrderStatusLogs()->sort('Created', 'DESC')->first()->Status;
+	}
 
 	public function updateCMSFields(\FieldList $fields) {
 		if(!$this->owner->IsCart())
-			$fields->replaceField('Status', \ReadonlyField::create('READONLY-Status', 'Status', $this->owner->OrderStatusLogs()->sort('Created', 'DESC')->first()->Status)->addExtraClass('important'));
+			$fields->replaceField('Status', \ReadonlyField::create('READONLY-State', 'State', $this->owner->State)->addExtraClass('important'));
 
 		$fields->addFieldsToTab('Root.Logs', [
 			\GridField::create(
@@ -37,6 +41,14 @@ class Order extends \DataExtension {
 	}
 
 	public function onPaid() {
+		$this->compileChangesAndLog(__FUNCTION__, [], true);
+	}
+
+	public function onStatusChange() {
+		$this->compileChangesAndLog(__FUNCTION__, [], true);
+	}
+
+	public function onCancelled() {
 		$this->compileChangesAndLog(__FUNCTION__, [], true);
 	}
 
@@ -77,6 +89,13 @@ class Order extends \DataExtension {
 	}
 
 	public function onAfterWrite() {
+		if($this->owner->isChanged('Status')) {
+			if(in_array($this->owner->Status, ['MemberCancelled', 'AdminCancelled']))
+				$this->owner->extend('onCancelled');
+			else
+				$this->owner->extend('onStatusChange');
+		}
+
 		if($this->owner->isChanged('MemberID'))
 			$this->owner->extend('onSetMember', $this->owner->Member());
 

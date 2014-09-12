@@ -25,6 +25,7 @@ class OrderStatusLog extends \DataExtension {
 		'onPlaceOrder' => 'Placed',
 		'onPayment' => 'Processing',
 		'onPaid' => 'Paid',
+		'onCancelled' => 'Cancelled',
 	];
 
 	private static $ignore_events = [];
