@@ -107,8 +107,10 @@ class Order extends \DataExtension {
 				$this->owner->extend('onStatusChange');
 		}
 
-		if($this->owner->isChanged('MemberID'))
-			$this->owner->extend('onSetMember', $this->owner->Member());
+		if($this->owner->isChanged('MemberID')) {
+			$member = $this->owner->Member();
+			$this->owner->extend('onSetMember', $member);
+		}
 
 		$hasOnes = array_merge($this->owner->has_one(), $this->owner->belongs_to());
 		$changedRelations = [];
