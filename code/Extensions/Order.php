@@ -11,7 +11,10 @@ class Order extends \DataExtension {
 	protected $workingLogs = [];
 
 	public function getState() {
-		return $this->owner->OrderStatusLogs()->sort('Created', 'DESC')->first()->Status;
+        if($log = $this->owner->OrderStatusLogs()->sort('Created', 'DESC')->first())
+		    return $log->Status;
+        else
+            return $this->owner->Status;
 	}
 
 	public function updateCMSFields(\FieldList $fields) {
@@ -29,6 +32,14 @@ class Order extends \DataExtension {
 	}
 
 	public function onStartOrder() {
+        // Destroy working logs since the first log should always be the order started log
+        if(count($this->workingLogs)) {
+            foreach($this->workingLogs as $log) {
+                $log->delete();
+                $log->destroy();
+            }
+        }
+
 		$this->compileChangesAndLog(__FUNCTION__, [], true);
 	}
 
