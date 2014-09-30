@@ -1,4 +1,7 @@
 <?php namespace Milkyway\SS\Shop\OrderHistory\Extensions;
+
+//use Milkyway\SS\GridFieldUtils\DisplayAsTimeline;
+
 /**
  * Milkyway Multimedia
  * Order.php
@@ -27,6 +30,9 @@ class Order extends \DataExtension {
 				'History',
 				$this->owner->OrderStatusLogs(),
 				\GridFieldConfig_RecordViewer::create()
+//				->addComponents(
+//					new DisplayAsTimeline
+//				)
 			)
 		]);
 	}
