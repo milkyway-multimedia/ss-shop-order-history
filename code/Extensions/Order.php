@@ -31,8 +31,8 @@ class Order extends \DataExtension {
 			\GridField::create(
 				'OrderStatusLogs',
 				'History',
-				$this->owner->OrderStatusLogs(\OrderStatusLog::config()->max_records_per_order),
-				$gfc = \GridFieldConfig_RecordViewer::create()
+				$this->owner->OrderStatusLogs(),
+				$gfc = \GridFieldConfig_RecordViewer::create(\OrderStatusLog::config()->max_records_per_order)
 				->addComponents(
 					new DisplayAsTimeline
 				)
