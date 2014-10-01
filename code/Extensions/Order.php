@@ -43,6 +43,14 @@ class Order extends \DataExtension {
 			$gfc->removeComponentsByType('GridFieldPageCount');
 			$gfc->removeComponentsByType('GridFieldPaginator');
 		}
+
+		if($df = $gfc->getComponentByType('GridFieldDataColumns')) {
+			$df->setDisplayFields([
+				'Title' => 'Status',
+				'Created' => 'Date',
+				'Details' => 'Details',
+			]);
+		}
 	}
 
 	public function onStartOrder() {
