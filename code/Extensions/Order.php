@@ -1,6 +1,7 @@
 <?php namespace Milkyway\SS\Shop\OrderHistory\Extensions;
 
-//use Milkyway\SS\GridFieldUtils\DisplayAsTimeline;
+use Milkyway\SS\Assets;
+use Milkyway\SS\GridFieldUtils\DisplayAsTimeline;
 
 /**
  * Milkyway Multimedia
@@ -24,28 +25,29 @@ class Order extends \DataExtension {
 		if(!$this->owner->IsCart())
 			$fields->replaceField('Status', \ReadonlyField::create('READONLY-State', 'State', $this->owner->State)->addExtraClass('important'));
 
+		Assets::include_font_css();
+
 		$fields->addFieldsToTab('Root.Logs', [
 			\GridField::create(
 				'OrderStatusLogs',
 				'History',
-				$this->owner->OrderStatusLogs(),
-				\GridFieldConfig_RecordViewer::create()
-//				->addComponents(
-//					new DisplayAsTimeline
-//				)
+				$this->owner->OrderStatusLogs(\OrderStatusLog::config()->max_records_per_order),
+				$gfc = \GridFieldConfig_RecordViewer::create()
+				->addComponents(
+					new DisplayAsTimeline
+				)
 			)
 		]);
+
+		if($this->owner->OrderStatusLogs()->count() <= 50) {
+			$gfc->removeComponentsByType('GridFieldPageCount');
+			$gfc->removeComponentsByType('GridFieldPaginator');
+		}
 	}
 
 	public function onStartOrder() {
         // Destroy working logs since the first log should always be the order started log
-        if(count($this->workingLogs)) {
-            foreach($this->workingLogs as $log) {
-                $log->delete();
-                $log->destroy();
-            }
-        }
-
+        $this->owner->OrderStatusLogs()->removeAll();
 		$this->compileChangesAndLog(__FUNCTION__, [], true);
 	}
 
@@ -145,6 +147,7 @@ class Order extends \DataExtension {
 
 			// Clean if its over the max limit of history allowed
 			if($max && $count >= $max) {
+				// Here we find the latest items with generic status, so we can filter them out later
 				$items = $this->owner->OrderStatusLogs()->filter('Status', OrderStatusLog::GENERIC_STATUS)->sort('Created DESC')->limit(50)->column('ID');
 				$this->owner->OrderStatusLogs()->filter(['Status' => OrderStatusLog::GENERIC_STATUS, 'ID:not' => $items])->removeAll();
 			}

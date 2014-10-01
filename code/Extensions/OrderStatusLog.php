@@ -31,7 +31,7 @@ class OrderStatusLog extends \DataExtension {
 	private static $ignore_events = [];
 
 	/** @var int You can end up with a lot of logs if you are not careful.
-	 * This only applies to automatic logs, logs entered manually in the CMS will always be saved */
+	 * This only applies to automatic logs (such as record updates), logs entered manually in the CMS will always be saved */
 	private static $max_records_per_order = 50;
 
 	// This is the generic status of an order, and is reserved for automatic updates
@@ -62,5 +62,47 @@ class OrderStatusLog extends \DataExtension {
 	public function onBeforeWrite() {
 		if(!$this->owner->Title)
 			$this->owner->Title = $this->owner->Status;
+	}
+
+	public function canView($member = null) {
+		if($this->owner->Order()->canView($member))
+			return true;
+	}
+
+	public function canCreate($member = null) {
+		if($this->owner->Order()->canEdit($member))
+			return true;
+	}
+
+	public function getTimelineIcon() {
+		switch($this->owner->Status) {
+			case 'Started':
+				return '<i class="fa fa-star-o order-statusIcon--started"></i>';
+				break;
+			case 'Processing':
+				return '<i class="fa fa-refresh order-statusIcon--processing"></i>';
+				break;
+			case 'Placed':
+				return '<i class="fa fa-check order-statusIcon--placed"></i>';
+				break;
+			case 'Paid':
+				$extraClass = '';
+
+				if(($component = $this->owner->Order()->has_many('Payments')) && count($component) && ($lastPayment = $this->owner->Order()->Payments()->filter('Status', 'Captured')->first())) {
+					switch($lastPayment->Gateway) {
+						case 'PayPal_Express':
+							$extraClass = 'fa-paypal';
+							break;
+						default:
+							$extraClass = 'fa-' . strtolower(str_replace(' ', '', $lastPayment->Gateway));
+							break;
+					}
+				}
+
+				return '<i class="fa fa-money ' . $extraClass . ' order-statusIcon--paid"></i>';
+				break;
+		}
+
+		return '<i class="fa order-statusIcon--minor icon-timeline--minor"></i>';
 	}
 } 
