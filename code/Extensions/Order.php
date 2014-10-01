@@ -47,7 +47,12 @@ class Order extends \DataExtension {
 
 	public function onStartOrder() {
         // Destroy working logs since the first log should always be the order started log
-        $this->owner->OrderStatusLogs()->removeAll();
+        foreach($this->owner->OrderStatusLogs() as $log) {
+	        if($log->exists()) {
+		        $log->delete();
+		        $log->destroy();
+	        }
+        }
 		$this->compileChangesAndLog(__FUNCTION__, [], true);
 	}
 
