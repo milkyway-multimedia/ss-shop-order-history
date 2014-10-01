@@ -88,7 +88,7 @@ class OrderStatusLog extends \DataExtension {
 			case 'Paid':
 				$extraClass = '';
 
-				if(($component = $this->owner->Order()->has_many('Payments')) && count($component) && ($lastPayment = $this->owner->Order()->Payments()->filter('Status', 'Captured')->first())) {
+				if(($component = $this->owner->Order()->has_many('Payments')) && count($component) && ($lastPayment = $this->owner->Order()->Payments()->filter(['Status' => 'Captured', 'Created:LessThan' => $this->owner->Created])->first())) {
 					switch($lastPayment->Gateway) {
 						case 'PayPal_Express':
 							$extraClass = 'fa-paypal';
@@ -104,5 +104,31 @@ class OrderStatusLog extends \DataExtension {
 		}
 
 		return '<i class="fa order-statusIcon--minor icon-timeline--minor"></i>';
+	}
+
+	public function getDetails($separator = ' - ') {
+		$details = [];
+
+		switch($this->owner->Status) {
+			case 'Started':
+				break;
+			case 'Processing':
+				break;
+			case 'Placed':
+				break;
+			case 'Paid':
+				if(($component = $this->owner->Order()->has_many('Payments')) && count($component) && ($lastPayment = $this->owner->Order()->Payments()->filter(['Status' => 'Captured', 'Created:LessThan' => $this->owner->Created])->first())) {
+					$details[] = 'via ' . \GatewayInfo::nice_title($lastPayment->Gateway);
+					$details[] = 'charged ' . \GatewayInfo::nice_title($lastPayment->obj('Money')->Nice());
+
+					if($gatewayMessage = \GatewayMessage::get()->filter(['PaymentID' => $lastPayment->ID, 'Reference:not' => ''])->first()) {
+						if($gatewayMessage->Reference)
+							$details[] = 'Reference: ' . $gatewayMessage->Reference;
+					}
+				}
+				break;
+		}
+
+		return implode($separator, $details);
 	}
 } 

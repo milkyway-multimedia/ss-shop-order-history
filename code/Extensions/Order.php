@@ -31,7 +31,7 @@ class Order extends \DataExtension {
 			\GridField::create(
 				'OrderStatusLogs',
 				'History',
-				$this->owner->OrderStatusLogs(),
+				$this->owner->LogsByStatusPriority(),
 				$gfc = \GridFieldConfig_RecordViewer::create(\OrderStatusLog::config()->max_records_per_order)
 				->addComponents(
 					new DisplayAsTimeline
@@ -48,7 +48,10 @@ class Order extends \DataExtension {
 			$df->setDisplayFields([
 				'Title' => 'Status',
 				'Created' => 'Date',
-				'Details' => 'Details',
+			]);
+
+			$df->setFieldFormatting([
+				'Title' => '<strong>$Title</strong> - $Details'
 			]);
 		}
 	}
@@ -185,5 +188,14 @@ class Order extends \DataExtension {
 			else
 				$log->destroy();
 		}
+	}
+
+	public function LogsByStatusPriority() {
+		$order = $this->owner;
+
+		return $this->owner->OrderStatusLogs()->alterDataQuery(function($query, $list) use($order) {
+			// Only compatible with MySQL at the moment...
+			$query->sort("FIELD(Status,'Paid','Processing','Placed','Updated','Started')", null, false);
+		});
 	}
 } 
