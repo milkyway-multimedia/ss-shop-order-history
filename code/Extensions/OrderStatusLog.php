@@ -44,6 +44,20 @@ class OrderStatusLog extends \DataExtension
 	// These are reserved statuses that change the mode of the Order, hence cannot be added by the user
 	const RESERVED_STATUS = 'Started,Completed,Cancelled';
 
+	public function updateCMSFields(\FieldList $fields)
+	{
+		$fields->removeByName('Status');
+		$fields->removeByName('AuthorID');
+		$fields->removeByName('Changes');
+
+		$fields->insertBefore(\Select2Field::create('Status', 'Status', '', \OrderStatusLog::get()->filter('Status:not', explode(',', self::RESERVED_STATUS))->sort('Status', 'ASC')->alterDataQuery(function ($query, $list) {
+			$query->groupby('Status');
+		}), ['Status:StartsWith'], 'Status', 'Status')
+			->setMinimumSearchLength(0)
+			->setEmptyString('You select from below, or create a new status')
+			->setDescription(_t('OrderStatusLog.DESC-Status', 'Note: Updated is a special status. If there are more than {limit} logs for an order, it will automatically delete statuses classes as Updated.', ['limit' => $this->owner->config()->max_records_per_order])), 'Title');
+	}
+
 	public function log($event, $params = [], $write = true)
 	{
 		if (isset($this->owner->config()->status_mapping_for_events[$event]))
@@ -150,7 +164,7 @@ class OrderStatusLog extends \DataExtension
 				if (isset($log['ShippingAddress']) && $log['ShippingAddress']) {
 					$details[] = 'Ship to: ' . implode(', ', array_filter([$log['ShippingAddress']->Name, $log['ShippingAddress']->toString()]));
 
-					if(!$this->owner->Order()->SeparateBillingAddress)
+					if (!$this->owner->Order()->SeparateBillingAddress)
 						$details[] = 'Bill to: ' . implode(', ', array_filter([$log['ShippingAddress']->Name, $log['ShippingAddress']->toString()]));
 				}
 

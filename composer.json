@@ -18,6 +18,7 @@
 	],
 	"require"     : {
 		"silverstripe/framework"                  : "~3.1",
+		"heyday/silverstripe-dataobjectpreview"   : "~1",
 		"milkyway-multimedia/ss-gridfield-utils"  : "dev-master",
 		"milkyway-multimedia/ss-mwm-autocomplete" : "dev-master",
 		"milkyway-multimedia/ss-mwm"              : "dev-master"
