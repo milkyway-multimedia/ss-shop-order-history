@@ -1,6 +1,7 @@
 <?php namespace Milkyway\SS\Shop\OrderHistory\Extensions;
 
 use Milkyway\SS\Assets;
+use Milkyway\SS\Director;
 use Milkyway\SS\GridFieldUtils\DisplayAsTimeline;
 
 /**
@@ -15,7 +16,7 @@ class Order extends \DataExtension {
 	protected $workingLogs = [];
 
 	public function getState() {
-        if($log = $this->owner->OrderStatusLogs()->sort('Created', 'DESC')->first())
+        if($log = $this->owner->LogsByStatusPriority()->first())
 		    return $log->Status;
         else
             return $this->owner->Status;
@@ -23,7 +24,7 @@ class Order extends \DataExtension {
 
 	public function updateCMSFields(\FieldList $fields) {
 		if(!$this->owner->IsCart())
-			$fields->replaceField('Status', \ReadonlyField::create('READONLY-State', 'State', $this->owner->State)->addExtraClass('important'));
+			$fields->replaceField('Status', \ReadonlyField::create('READONLY-State', 'Status', $this->owner->State)->addExtraClass('important')->setDescription(_t('Order.DESC-State', 'The status of your order is controlled by the order logging system. <a href="{logTab}">You can add a new log here.</a>', ['logTab' => Director::url('#tab-Root_Logs')])));
 
 		Assets::include_font_css();
 
@@ -32,7 +33,7 @@ class Order extends \DataExtension {
 				'OrderStatusLogs',
 				'History',
 				$this->owner->LogsByStatusPriority(),
-				$gfc = \GridFieldConfig_RecordViewer::create(\OrderStatusLog::config()->max_records_per_order)
+				$gfc = \GridFieldConfig_RecordEditor::create(\OrderStatusLog::config()->max_records_per_order)
 				->addComponents(
 					new DisplayAsTimeline
 				)
@@ -51,7 +52,8 @@ class Order extends \DataExtension {
 			]);
 
 			$df->setFieldFormatting([
-				'Title' => '<strong>$Title</strong> - $Details'
+				'Title' => '<strong>$Title</strong> $DetailsForDataGrid',
+				'Created' => '<strong>Logged $Created</strong>',
 			]);
 		}
 	}
@@ -64,7 +66,7 @@ class Order extends \DataExtension {
 		        $log->destroy();
 	        }
         }
-		$this->compileChangesAndLog(__FUNCTION__, [], true);
+		$this->compileChangesAndLog(__FUNCTION__, ['Referrer' => isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : ''], true);
 	}
 
 	public function onPlaceOrder() {
@@ -87,16 +89,20 @@ class Order extends \DataExtension {
 		$this->compileChangesAndLog(__FUNCTION__, [], true);
 	}
 
+	public function onRecovered() {
+		$this->compileChangesAndLog(__FUNCTION__, ['Referrer' => isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : ''], true);
+	}
+
 	public function afterAdd($item, $buyable, $quantity, $filter) {
-		$this->compileChangesAndLog('addedAnItem', ['OrderItem' => $item->toMap(), 'Quantity' => $quantity]);
+		$this->compileChangesAndLog('addedAnItem', ['OrderItem' => $item, 'Quantity' => $quantity]);
 	}
 
 	public function afterRemove($item, $buyable, $quantity, $filter) {
-		$this->compileChangesAndLog('removedAnItem', ['OrderItem' => $item->toMap(), 'Quantity' => $quantity]);
+		$this->compileChangesAndLog('removedAnItem', ['OrderItem' => $item, 'Quantity' => 0]);
 	}
 
 	public function afterSetQuantity($item, $buyable, $quantity, $filter) {
-		$this->compileChangesAndLog('changedItemQuantity', ['OrderItem' => $item->toMap(), 'Quantity' => $quantity]);
+		$this->compileChangesAndLog('changedItemQuantity', ['OrderItem' => $item, 'Quantity' => $quantity]);
 	}
 
 	public function onSetShippingAddress($address) {
@@ -194,8 +200,14 @@ class Order extends \DataExtension {
 		$order = $this->owner;
 
 		return $this->owner->OrderStatusLogs()->alterDataQuery(function($query, $list) use($order) {
-			// Only compatible with MySQL at the moment...
-			$query->sort("FIELD(Status,'Paid','Processing','Placed','Updated','Started')", null, false);
+			// Only compatible with MySQL at the moment... waiting for new ORM
+			$query->sort("FIELD(Status,'Completed','Cancelled','Paid','Processing','Placed','Updated','Started')", null, false);
+
+//			$statuses = ['Completed', 'Cancelled', 'Paid', 'Processing', 'Placed', 'Updated', 'Started'];
+//
+//			foreach($statuses as $status) {
+//				$query->sort('"Status" != \'' . $status . "'", null, false);
+//			}
 		});
 	}
 } 

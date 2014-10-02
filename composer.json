@@ -1,33 +1,28 @@
 {
-	"name"       : "milkyway-multimedia/ss-shop-order-history",
-	"description": "A basic history and communication record for orders",
-	"type"       : "silverstripe-module",
-	"keywords"   : [
+	"name"        : "milkyway-multimedia/ss-shop-order-history",
+	"description" : "A basic history and communication record for orders",
+	"type"        : "silverstripe-module",
+	"keywords"    : [
 		"silverstripe",
 		"mwm",
 		"shop",
 		"ecommerce",
 		"orders"
 	],
-	"license"    : "MIT",
-	"authors"    : [
+	"license"     : "MIT",
+	"authors"     : [
 		{
-			"name" : "Mellisa Hankins",
-			"email": "mell@milkywaymultimedia.com.au"
+			"name"  : "Mellisa Hankins",
+			"email" : "mell@milkywaymultimedia.com.au"
 		}
 	],
-	"require"    : {
-		"silverstripe/framework": "~3.1",
-		"milkyway-multimedia/ss-gridfield-utils": "dev-master",
-		"milkyway-multimedia/ss-mwm": "dev-master"
+	"require"     : {
+		"silverstripe/framework"                  : "~3.1",
+		"milkyway-multimedia/ss-gridfield-utils"  : "dev-master",
+		"milkyway-multimedia/ss-mwm-autocomplete" : "dev-master",
+		"milkyway-multimedia/ss-mwm"              : "dev-master"
 	},
-	"repositories"      : [
-		{
-			"type" : "vcs",
-			"url"  : "https://github.com/milkyway-multimedia/ss-gridfield-utils"
-		}
-	],
-	"extra"      : {
-		"installer-name": "shop-order-history"
+	"extra"       : {
+		"installer-name" : "shop-order-history"
 	}
 }

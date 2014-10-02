@@ -9,3 +9,7 @@ Order:
 OrderStatusLog:
   extensions:
     - Milkyway\SS\Shop\OrderHistory\Extensions\OrderStatusLog
+
+OrderItem:
+  extensions:
+    - Milkyway\SS\Shop\OrderHistory\Extensions\OrderItem
