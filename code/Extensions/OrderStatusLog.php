@@ -55,7 +55,7 @@ class OrderStatusLog extends \DataExtension
 		}), ['Status:StartsWith'], 'Status', 'Status')
 			->setMinimumSearchLength(0)
 			->setEmptyString('You select from below, or create a new status')
-			->setDescription(_t('OrderStatusLog.DESC-Status', 'Note: Updated is a special status. If there are more than {limit} logs for an order, it will automatically delete statuses classes as Updated.', ['limit' => $this->owner->config()->max_records_per_order])), 'Title');
+			->setDescription(_t('OrderStatusLog.DESC-Status', 'Note: Updated is a special status. If there are more than {limit} logs for an order, it will automatically delete statuses classes as Updated, so use with caution.', ['limit' => $this->owner->config()->max_records_per_order])), 'Title');
 	}
 
 	public function log($event, $params = [], $write = true)
