@@ -16,6 +16,9 @@ class OrderStatusLog extends \DataExtension
 	private static $db = [
 		'Status'       => 'Varchar',
 
+		// This is for dispatch
+		'DispatchUri'  => 'Text',
+
 		// This is for public viewing of a status log
 		'Public'       => 'Boolean',
 		'Unread'       => 'Boolean',
@@ -108,6 +111,11 @@ class OrderStatusLog extends \DataExtension
 	];
 
 	private static $ignore_events = [];
+
+	private static $shipping_providers = [
+		'Australia Post' => 'http://auspost.com.au/track/track.html',
+		'TNT Express' => 'http://www.tntexpress.com.au/interaction/asps/trackdtl_tntau.asp',
+	];
 
 	/** @var int You can end up with a lot of logs if you are not careful.
 	 * This only applies to automatic logs (such as record updates), logs entered manually in the CMS will always be
@@ -216,7 +224,13 @@ class OrderStatusLog extends \DataExtension
 		}
 
 		if(count($fieldSet)) {
-			$fields->insertAfter(\FieldGroup::create($fieldSet)->setTitle('Dispatched')->setName('Dispatched')->addExtraClass('hero-unit'), 'PublicFields');
+			$fields->removeByName('DispatchUri');
+			$fields->insertAfter(\CompositeField::create(
+				\FieldGroup::create($fieldSet)->setTitle('Dispatched')->setName('DispatchedDetails'),
+				\TextField::create('DispatchUri', _t('OrderStatusLog.DispatchUri', 'Tracking URL'))
+					->setDescription(_t('OrderStatusLog.DESC-DispatchUri', 'If none provided, will attempt to user the URL of the carrier'))
+			)->setName('Dispatched')->addExtraClass('hero-unit'), 'PublicFields');
+
 			$fieldSet = [];
 		}
 
@@ -494,6 +508,10 @@ class OrderStatusLog extends \DataExtension
 	public function getEmail()
 	{
 		$email = \Email::create();
+	}
+
+	public function getDispatchInformation() {
+		return $this->owner->renderWith('OrderStatusLog_DispatchInformation');
 	}
 }
 

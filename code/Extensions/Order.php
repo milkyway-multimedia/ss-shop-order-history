@@ -3,7 +3,9 @@
 use Milkyway\SS\Assets;
 use Milkyway\SS\Director;
 use Milkyway\SS\GridFieldUtils\DisplayAsTimeline;
+use Milkyway\SS\GridFieldUtils\GridFieldAddNewButton;
 use Milkyway\SS\GridFieldUtils\GridFieldDetailForm;
+use Milkyway\SS\GridFieldUtils\HelpButton;
 
 /**
  * Milkyway Multimedia
@@ -42,11 +44,19 @@ class Order extends \DataExtension
 				$this->owner->LogsByStatusPriority(),
 				$gfc = \GridFieldConfig_RecordEditor::create($maxRecords)
 					->addComponents(
-						(new GridFieldDetailForm('DetailForm', 'shipping'))->setFields($log->ShippedToFields),
+						$shippingDF = (new GridFieldDetailForm('DetailForm', 'shipping'))->setFields($log->ShippedToFields),
 						new DisplayAsTimeline
 					)
 			)
 		]);
+
+		if($shippingLog = $this->owner->OrderStatusLogs()->filter('Status', OrderStatusLog::SHIPPED_STATUS)->first()) {
+			$shippingDate = $shippingLog->DispatchedOn ?: $shippingLog->Created;
+			$gfc->addComponent((new HelpButton('buttons-before-right', 'Shipped: ' . $shippingDate, 'shipping-details'))->setContent($shippingLog->TrackingInformation));
+		}
+		else {
+			$gfc->addComponent(new GridFieldAddNewButton('buttons-before-right', 'Send shipping details', $shippingDF));
+		}
 
 		if ($this->owner->OrderStatusLogs()->count() <= $maxRecords) {
 			$gfc->removeComponentsByType('GridFieldPageCount');
@@ -105,7 +115,7 @@ class Order extends \DataExtension
 										. "\n"
 										. '$Order.ShippingAddress'
 										. "\n\n"
-										. '$TrackingInformation'
+										. '$DispatchInformation'
 									);
 							}
 
