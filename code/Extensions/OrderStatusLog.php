@@ -14,14 +14,30 @@ class OrderStatusLog extends \DataExtension
 	private static $singular_name = 'Status Entry';
 
 	private static $db = [
-		'Status'  => 'Varchar',
+		'Status'       => 'Varchar',
+
+		// This is for public viewing of a status log
+		'Public'       => 'Boolean',
+		'Unread'       => 'Boolean',
+		'FirstRead'    => 'Datetime',
+
+		// This is for emails to customer
+		'Send'         => 'Boolean',
+		'Sent'         => 'Datetime',
+		'Send_To'      => 'Varchar(256)',
+		'Send_Subject' => 'Varchar(256)',
+		'Send_Body'    => 'HTMLText',
 
 		// The versioned table is too messy with relations... Store changes on here instead
-		'Changes' => 'Text',
+		'Changes'      => 'Text',
 	];
 
 	private static $default_sort = 'Created DESC';
 
+	/**
+	 * This is the map
+	 * @var array
+	 */
 	private static $status_mapping_for_events = [
 		'onStartOrder' => 'Started',
 		'onPlaceOrder' => 'Placed',
@@ -29,6 +45,66 @@ class OrderStatusLog extends \DataExtension
 		'onPaid'       => 'Paid',
 		'onCancelled'  => 'Cancelled',
 		'onRecovered'  => 'Restarted',
+	];
+
+	private static $status_list = [
+		'Notified'   => [
+			'title' => 'Notified',
+			'icon' => '<i class="fa fa-comment order-statusIcon--notified"></i>',
+		],
+		'Shipped'    => [
+			'title' => 'Shipped',
+			'icon' => '<i class="fa fa-send order-statusIcon--shipped"></i>',
+		],
+		'Completed'  => [
+			'title' => 'Completed',
+			'icon' => '<i class="fa fa-star order-statusIcon--completed"></i>',
+		],
+		'Archived'  => [
+			'title' => 'Completed',
+			'icon' => '<i class="fa fa-archive order-statusIcon--archived"></i>',
+		],
+		'Cancelled'  => [
+			'title' => 'Cancelled',
+			'icon' => '<i class="fa fa-remove order-statusIcon--cancelled"></i>',
+		],
+		'Query'      => [
+			'title' => 'Query',
+			'icon' => '<i class="fa fa-question order-statusIcon--query"></i>',
+		],
+		'Refunded'   => [
+			'title' => 'Refunded',
+			'icon' => '<i class="fa fa-undo order-statusIcon--refunded"></i>',
+		],
+		'Paid'       => [
+			'title' => 'Paid',
+			'icon' => '<i class="fa fa-money order-statusIcon--paid"></i>',
+		],
+		'Placed'     => [
+			'title' => 'Placed',
+			'icon' => '<i class="fa fa-check order-statusIcon--placed"></i>',
+		],
+		'Processing' => [
+			'title' => 'Processing',
+			'icon' => '<i class="fa fa-refresh order-statusIcon--processing"></i>',
+		],
+		'Started'    => [
+			'title' => 'Started',
+			'icon' => '<i class="fa fa-star-o order-statusIcon--started"></i>',
+		],
+	];
+
+	private static $ignore_status_as_state = [
+		'Notified',
+		'Updated',
+	];
+
+	private static $disallowed_multiple_statuses = [
+		'Shipped',
+		'Completed',
+		'Cancelled',
+		'Placed',
+		'Started',
 	];
 
 	private static $ignore_events = [];
@@ -44,18 +120,207 @@ class OrderStatusLog extends \DataExtension
 	// These are reserved statuses that change the mode of the Order, hence cannot be added by the user
 	const RESERVED_STATUS = 'Started,Completed,Cancelled';
 
+	const SHIPPED_STATUS = 'Shipped';
+
+	const ARCHIVED_STATUS = 'Archived';
+
 	public function updateCMSFields(\FieldList $fields)
 	{
 		$fields->removeByName('Status');
 		$fields->removeByName('AuthorID');
 		$fields->removeByName('Changes');
+		$fields->removeByName('FirstRead');
 
-		$fields->insertBefore(\Select2Field::create('Status', 'Status', '', \OrderStatusLog::get()->filter('Status:not', explode(',', self::RESERVED_STATUS))->sort('Status', 'ASC')->alterDataQuery(function ($query, $list) {
-			$query->groupby('Status');
-		}), ['Status:StartsWith'], 'Status', 'Status')
+		// Disables the default firing of sent to customer flag
+		$fields->removeByName('SentToCustomer');
+
+		// Status Field
+		$allSuggestedStatuses = (array)$this->owner->config()->status_list;
+		$statusesWithIcons = $otherStatuses = [];
+
+		foreach($allSuggestedStatuses as $status => $options) {
+			if(is_array($options) && isset($options['icon']))
+				$statusesWithIcons[$status] = isset($options['title']) ? $options['icon'] . ' ' . $options['title'] : $options['icon'] . ' ' . $status;
+			else {
+				if(is_array($options) && isset($options['title']))
+					$otherStatuses[$status] = $options['title'];
+				else
+					$otherStatuses[$status] = $options;
+			}
+		}
+
+		$otherStatuses = array_merge($otherStatuses, \OrderStatusLog::get()->filter('Status:not', array_merge(array_keys($allSuggestedStatuses), explode(',', self::RESERVED_STATUS)))->sort('Status', 'ASC')->map('Status', 'Status')->toArray());
+
+		$statuses = [
+			'Suggested status (these use an icon and/or special formatting)' => $statusesWithIcons,
+		];
+
+		if (count($otherStatuses)) {
+			asort($otherStatuses);
+			$statuses['Other Status'] = $otherStatuses;
+		}
+
+		$fields->insertBefore($statusField = \Select2Field::create('Status', 'Status', '', $statuses)
 			->setMinimumSearchLength(0)
-			->setEmptyString('You select from below, or create a new status')
+			->setEmptyString('You can select from suggested statuses, or create a new status')
+			->setAttribute('data-format-searching', _t('OrderStatusLog.SEARCHING-Status', 'Loading statuses...'))
 			->setDescription(_t('OrderStatusLog.DESC-Status', 'Note: Updated is a special status. If there are more than {limit} logs for an order, it will automatically delete statuses classes as Updated, so use with caution.', ['limit' => $this->owner->config()->max_records_per_order])), 'Title');
+
+		$statusField->allowHTML = true;
+		$statusField->limit = count($statusesWithIcons) + count($otherStatuses);
+
+		$dataFields = $fields->dataFields();
+
+		if(isset($dataFields['Title']))
+			$dataFields['Title']->setDescription(_t('OrderStatusLog.DESC-Title', 'If not set, will automatically use the Status above'));
+
+		if(isset($dataFields['Note']) && $dataFields['Note'] instanceof \TextareaField)
+			$dataFields['Note']->setRows(2);
+
+		$fieldSet = [];
+
+		foreach(['Public', 'Unread'] as $field) {
+			if(isset($dataFields[$field])) {
+				$fieldSet[$field] = $dataFields[$field];
+				$fields->removeByName($field);
+			}
+		}
+
+		if(count($fieldSet)) {
+			if(isset($fieldSet['Public']))
+				$fieldSet['Public']->setTitle($fieldSet['Public']->Title() . ' (' . _t('OrderStatusLog.DESC-Public', 'If checked, user can view this log on the front-end when checking the status of their orders') . ')');
+
+			if($this->owner->FirstRead) {
+				$fieldSet['FirstRead'] = \DatetimeField::create('FirstRead');
+			}
+
+			$fields->insertAfter(\FieldGroup::create($fieldSet)->setTitle('Public Visibility')->setName('PublicFields')->addExtraClass('hero-unit stacked-items'), 'Note');
+			$fieldSet = [];
+		}
+
+		foreach(['DispatchTicket', 'DispatchedBy', 'DispatchedOn'] as $field) {
+			if(isset($dataFields[$field])) {
+				$fieldSet[$field] = $dataFields[$field];
+				$fields->removeByName($field);
+
+				if($fieldSet[$field] instanceof \DateField)
+					$fieldSet[$field]->setConfig('showcalendar', true);
+
+				if($field == 'DispatchTicket')
+					$fieldSet[$field]->setTitle(_t('OrderStatusLog.TRACKING_ID', 'Tracking ID'));
+				elseif($field == 'DispatchedBy')
+					$fieldSet[$field]->setTitle(_t('OrderStatusLog.VIA', 'via'));
+				elseif($field == 'DispatchedOn')
+					$fieldSet[$field]->setTitle(_t('OrderStatusLog.ON', 'on'));
+			}
+		}
+
+		if(count($fieldSet)) {
+			$fields->insertAfter(\FieldGroup::create($fieldSet)->setTitle('Dispatched')->setName('Dispatched')->addExtraClass('hero-unit'), 'PublicFields');
+			$fieldSet = [];
+		}
+
+		foreach(['PaymentCode', 'PaymentOK'] as $field) {
+			if(isset($dataFields[$field])) {
+				$fieldSet[$field] = $dataFields[$field];
+				$fields->removeByName($field);
+
+				if($field == 'PaymentCode')
+					$fieldSet[$field]->setTitle(_t('OrderStatusLog.CODE', 'Code'));
+			}
+		}
+
+		if(count($fieldSet)) {
+			$fields->insertAfter(\FieldGroup::create($fieldSet)->setTitle('Payment')->setName('Payment')->addExtraClass('hero-unit'), 'Dispatched');
+			$fieldSet = [];
+		}
+
+		// Email Fields
+
+		$fields->addFieldsToTab('Root', [
+			\Tab::create(
+				'Email',
+				_t('OrderStatusLog.EMAIL', 'Email')
+			)
+		]);
+
+		$fields->removeByName('Send_To');
+		$fields->removeByName('Send_Subject');
+		$fields->removeByName('Send_Body');
+		$fields->removeByName('Send');
+		$fields->removeByName('Sent');
+
+		$emailFields = [
+			\TextField::create('Send_To', _t('OrderStatusLog.Send_To', 'Send to'))
+				->setAttribute('placeholder', $this->owner->Order()->ForEmail),
+			\TextField::create('Send_Subject', _t('OrderStatusLog.Send_Subject', 'Subject'))
+				->setAttribute('placeholder', _t('Order.RECEIPT_SUBJECT', 'Web Order - {reference}', ['reference' => $this->owner->Order()->Reference])),
+			\HTMLEditorField::create('Send_Body', _t('OrderStatusLog.Send_Body', 'Body'))->setRows(2)
+				->setDescription(_t('OrderStatusLog.DESC-Send_Body', 'If no body is provided, will use the log notes (as seen below)')),
+			\DataObjectPreviewField::create(
+				__CLASS__ . '_EmailPreview',
+				new OrderStatusLog_EmailPreview($this->owner),
+				new \DataObjectPreviewer(new OrderStatusLog_EmailPreview($this->owner))
+			),
+		];
+
+		if($this->owner->Sent) {
+			$readOnlyEmailFields = [];
+
+			foreach($emailFields as $emailField) {
+				if(!($emailField instanceof \DataObjectPreviewField))
+					$readOnlyEmailFields[] = $emailField->performReadonlyTransformation();
+			}
+
+			unset($emailFields);
+
+			$fields->addFieldsToTab('Root.Email', array_merge([
+				\ReadonlyField::create('READONLY_Sent', _t('OrderStatusLog.Sent', 'Sent'), $this->owner->obj('Sent')->Nice()),
+			], $readOnlyEmailFields));
+		}
+		else {
+			$fields->addFieldsToTab('Root.Email', [
+				\HeaderField::create('HEADER-Send', _t('OrderStatusLog.Send', 'Send as an email to the customer?'), 3),
+				\SelectionGroup::create('Send', [
+					\SelectionGroup_Item::create(0, \CompositeField::create(), _t('OrderStatusLog.Send-NO', 'No')),
+					\SelectionGroup_Item::create(1, \CompositeField::create($emailFields), _t('OrderStatusLog.Send-YES', 'Yes')),
+				])->addExtraClass('selectionGroup--minor')
+			]);
+		}
+	}
+
+	public function getShippedToFields() {
+		$fields = $this->owner->getCMSFields();
+
+		$fields->removeByName('Payment');
+
+		if($shipping = $fields->fieldByName('Root.Main.Dispatched')) {
+			$fields->removeByName('Dispatched');
+			$fields->insertBefore($shipping, 'Status');
+		}
+
+		if($public = $fields->fieldByName('Root.Main.PublicFields')) {
+			$public->removeExtraClass('hero-unit');
+		}
+
+		return $fields;
+	}
+
+	public function setEditFormWithParent($parent, $form, $controller = null) {
+		if($parent && ($parent instanceof \Order)) {
+			$dataFields = $form->Fields()->dataFields();
+
+			if(isset($dataFields['Send_To']))
+				$dataFields['Send_To']->setAttribute('placeholder', $parent->ForEmail);
+
+			if(isset($dataFields['Send_Subject']))
+				$dataFields['Send_Subject']->setAttribute('placeholder', _t('Order.RECEIPT_SUBJECT', 'Web Order - {reference}', ['reference' => $parent->Reference]));
+
+			if(isset($dataFields['Status']))
+				$dataFields['Status']->disabledOptions = $parent->OrderStatusLogs()->filter('Status', $this->owner->config()->disallowed_multiple_statuses)->column('Status');
+		}
+
+		$this->owner->extend('updateEditFormWithParent', $parent, $form, $controller);
 	}
 
 	public function log($event, $params = [], $write = true)
@@ -103,16 +368,13 @@ class OrderStatusLog extends \DataExtension
 
 	public function getTimelineIcon()
 	{
+		$statuses = (array)$this->owner->config()->status_list;
+		$icon = '';
+
+		if(isset($statuses[$this->owner->Status]) && isset($statuses[$this->owner->Status]['icon']))
+			$icon = $statuses[$this->owner->Status]['icon'];
+
 		switch ($this->owner->Status) {
-			case 'Started':
-				return '<i class="fa fa-star-o order-statusIcon--started"></i>';
-				break;
-			case 'Processing':
-				return '<i class="fa fa-refresh order-statusIcon--processing"></i>';
-				break;
-			case 'Placed':
-				return '<i class="fa fa-check order-statusIcon--placed"></i>';
-				break;
 			case 'Paid':
 				$extraClass = '';
 
@@ -127,11 +389,12 @@ class OrderStatusLog extends \DataExtension
 					}
 				}
 
-				return '<i class="fa fa-money ' . $extraClass . ' order-statusIcon--paid"></i>';
+				$icon = str_replace('order-statusIcon--paid', 'order-statusIcon--paid ' . $extraClass, $icon);
+
 				break;
 		}
 
-		return '<i class="fa order-statusIcon--minor icon-timeline--minor"></i>';
+		return $icon ? $icon : '<i class="fa order-statusIcon--minor icon-timeline--minor"></i>';
 	}
 
 	public function getDetailsForDataGrid($separator = ' - ')
@@ -222,6 +485,45 @@ class OrderStatusLog extends \DataExtension
 		if ($this->owner->Author()->exists())
 			$details[] = 'Author: ' . $this->owner->Author()->Name;
 
+		if ($this->owner->Note)
+			$details[] = '<strong>Note</strong><br/>' . $this->owner->Note;
+
 		return implode('<br/>', $details);
 	}
-} 
+
+	public function getEmail()
+	{
+		$email = \Email::create();
+	}
+}
+
+class OrderStatusLog_EmailPreview implements \DataObjectPreviewInterface
+{
+	protected $record;
+
+	public function __construct(\OrderStatusLog $record)
+	{
+		$this->record = $record;
+	}
+
+	public function getPreviewHTML()
+	{
+		$member = $this->record->Order()->Member();
+		if (\Config::inst()->get('OrderProcessor', 'receipt_email')) {
+			$adminEmail = \Config::inst()->get('OrderProcessor', 'receipt_email');
+		} else {
+			$adminEmail = \Email::config()->admin_email;
+		}
+		$e = new \Order_statusEmail();
+		$e->populateTemplate([
+			"Order"  => $this->record->Order(),
+			"Member" => $member,
+			"Note"   => $this->record->Note,
+		]);
+		$e->setFrom($adminEmail);
+		$e->setSubject($this->record->Subject);
+		$e->setTo($member->Email);
+
+		return $e->renderWith($e->getTemplate());
+	}
+}
