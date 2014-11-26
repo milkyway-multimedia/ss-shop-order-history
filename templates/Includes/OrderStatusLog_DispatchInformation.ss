@@ -10,5 +10,5 @@
     <% end_if %>
 
     <dt>Date</dt>
-    <dd><% if $DispatchedOn %>$DispatchedOn.Long<% else %>$Created.Long<% end_if %></dd>
+    <dd><% if $DispatchedOn %>$DispatchedOn.Long<% else_if $Created %>$Created.Long<% else %>$Now.Long<% end_if %></dd>
 </dl>

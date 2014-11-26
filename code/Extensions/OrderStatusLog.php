@@ -24,18 +24,24 @@ class OrderStatusLog extends \DataExtension
 		'Unread'       => 'Boolean',
 		'FirstRead'    => 'Datetime',
 
-		// This is for emails to customer
+		// This is for emails/notifications to customer
 		'Send'         => 'Boolean',
 		'Sent'         => 'Datetime',
 		'Send_To'      => 'Varchar(256)',
+		'Send_From'    => 'Varchar(256)',
 		'Send_Subject' => 'Varchar(256)',
 		'Send_Body'    => 'HTMLText',
+		'Send_HideOrder' => 'Boolean',
 
 		// The versioned table is too messy with relations... Store changes on here instead
 		'Changes'      => 'Text',
 	];
 
 	private static $default_sort = 'Created DESC';
+
+	private static $defaults = [
+		'Unread'       => true,
+	];
 
 	/**
 	 * This is the map
@@ -64,7 +70,7 @@ class OrderStatusLog extends \DataExtension
 			'icon' => '<i class="fa fa-star order-statusIcon--completed"></i>',
 		],
 		'Archived'  => [
-			'title' => 'Completed',
+			'title' => 'Archived',
 			'icon' => '<i class="fa fa-archive order-statusIcon--archived"></i>',
 		],
 		'Cancelled'  => [
@@ -172,7 +178,7 @@ class OrderStatusLog extends \DataExtension
 			->setMinimumSearchLength(0)
 			->setEmptyString('You can select from suggested statuses, or create a new status')
 			->setAttribute('data-format-searching', _t('OrderStatusLog.SEARCHING-Status', 'Loading statuses...'))
-			->setDescription(_t('OrderStatusLog.DESC-Status', 'Note: Updated is a special status. If there are more than {limit} logs for an order, it will automatically delete statuses classes as Updated, so use with caution.', ['limit' => $this->owner->config()->max_records_per_order])), 'Title');
+			->setDescription(_t('OrderStatusLog.DESC-Status', 'Note: {updated} is a special status. If there are more than {limit} logs for an order, it will automatically delete statuses classed as {updated}, so use with caution.', ['updated' => static::GENERIC_STATUS, 'limit' => $this->owner->config()->max_records_per_order])), 'Title');
 
 		$statusField->allowHTML = true;
 		$statusField->limit = count($statusesWithIcons) + count($otherStatuses);
@@ -228,7 +234,7 @@ class OrderStatusLog extends \DataExtension
 			$fields->insertAfter(\CompositeField::create(
 				\FieldGroup::create($fieldSet)->setTitle('Dispatched')->setName('DispatchedDetails'),
 				\TextField::create('DispatchUri', _t('OrderStatusLog.DispatchUri', 'Tracking URL'))
-					->setDescription(_t('OrderStatusLog.DESC-DispatchUri', 'If none provided, will attempt to user the URL of the carrier'))
+					->setDescription(_t('OrderStatusLog.DESC-DispatchUri', 'If none provided, will attempt to use the URL of the carrier'))
 			)->setName('Dispatched')->addExtraClass('hero-unit'), 'PublicFields');
 
 			$fieldSet = [];
@@ -261,6 +267,8 @@ class OrderStatusLog extends \DataExtension
 		$fields->removeByName('Send_To');
 		$fields->removeByName('Send_Subject');
 		$fields->removeByName('Send_Body');
+		$fields->removeByName('Send_From');
+		$fields->removeByName('Send_HideOrder');
 		$fields->removeByName('Send');
 		$fields->removeByName('Sent');
 
@@ -269,10 +277,11 @@ class OrderStatusLog extends \DataExtension
 				->setAttribute('placeholder', $this->owner->Order()->ForEmail),
 			\TextField::create('Send_Subject', _t('OrderStatusLog.Send_Subject', 'Subject'))
 				->setAttribute('placeholder', _t('Order.RECEIPT_SUBJECT', 'Web Order - {reference}', ['reference' => $this->owner->Order()->Reference])),
+			\CheckboxField::create('Send_HideOrder', _t('OrderStatusLog.Send_HideOrder', 'Hide order from email')),
 			\HTMLEditorField::create('Send_Body', _t('OrderStatusLog.Send_Body', 'Body'))->setRows(2)
 				->setDescription(_t('OrderStatusLog.DESC-Send_Body', 'If no body is provided, will use the log notes (as seen below)')),
 			\DataObjectPreviewField::create(
-				__CLASS__ . '_EmailPreview',
+				get_class($this->owner) . '_EmailPreview',
 				new OrderStatusLog_EmailPreview($this->owner),
 				new \DataObjectPreviewer(new OrderStatusLog_EmailPreview($this->owner))
 			),
@@ -282,7 +291,7 @@ class OrderStatusLog extends \DataExtension
 			$readOnlyEmailFields = [];
 
 			foreach($emailFields as $emailField) {
-				if(!($emailField instanceof \DataObjectPreviewField))
+				if($emailField->Name != 'Send_Body' && !($emailField instanceof \DataObjectPreviewField))
 					$readOnlyEmailFields[] = $emailField->performReadonlyTransformation();
 			}
 
@@ -332,6 +341,15 @@ class OrderStatusLog extends \DataExtension
 
 			if(isset($dataFields['Status']))
 				$dataFields['Status']->disabledOptions = $parent->OrderStatusLogs()->filter('Status', $this->owner->config()->disallowed_multiple_statuses)->column('Status');
+
+			$this->owner->OrderID = $parent->ID;
+
+			$form->Fields()->removeByName(get_class($this->owner) . '_EmailPreview');
+			$form->Fields()->insertAfter(\DataObjectPreviewField::create(
+				get_class($this->owner) . '_EmailPreview',
+				new OrderStatusLog_EmailPreview($this->owner),
+				new \DataObjectPreviewer(new OrderStatusLog_EmailPreview($this->owner))
+			), 'Send_Body');
 		}
 
 		$this->owner->extend('updateEditFormWithParent', $parent, $form, $controller);
@@ -368,6 +386,19 @@ class OrderStatusLog extends \DataExtension
 			$this->owner->Title = $this->owner->Status;
 	}
 
+	public function onAfterWrite() {
+		if(!$this->owner->Sent && $this->owner->Send && ($email = $this->owner->Email) && $email->To) {
+			$email->send();
+
+			$this->owner->Sent = \SS_Datetime::now()->Rfc2822();
+			\Requirements::clear();
+			$this->owner->Send_Body = $email->renderWith($email->getTemplate());
+			\Requirements::restore();
+
+			$this->owner->write();
+		}
+	}
+
 	public function canView($member = null)
 	{
 		if (singleton('OrdersAdmin')->canView($member) || $this->owner->Order()->canView($member))
@@ -376,7 +407,7 @@ class OrderStatusLog extends \DataExtension
 
 	public function canCreate($member = null)
 	{
-		if (singleton('OrdersAdmin')->canView($member))
+		if (singleton('OrdersAdmin')->canView($member)|| $this->owner->Order()->canView($member))
 			return true;
 	}
 
@@ -507,7 +538,49 @@ class OrderStatusLog extends \DataExtension
 
 	public function getEmail()
 	{
-		$email = \Email::create();
+		$order = $this->owner->Order();
+
+		$email = \Order_statusEmail::create();
+
+		if($this->owner->Send_To)
+			$email->setTo($this->owner->Send_To);
+		elseif(trim($order->Name))
+			$email->setTo($order->Name . ' <' . $order->LatestEmail . '>');
+		else
+			$email->setTo($order->LatestEmail);
+
+		if($this->owner->Send_From) {
+			$email->setFrom($this->owner->Send_From);
+		}
+		else {
+			if (\Config::inst()->get('OrderProcessor', 'receipt_email')) {
+				$adminEmail = \Config::inst()->get('OrderProcessor', 'receipt_email');
+			} else {
+				$adminEmail = \Email::config()->admin_email;
+			}
+
+			$email->setFrom($adminEmail);
+		}
+
+		$email->setSubject($this->owner->Send_Subject);
+
+		$note = $this->owner->Send_Body ?: with(new \BBCodeParser($this->owner->Note))->parse();
+
+		$email->populateTemplate([
+			'Order'  => $order,
+			'Member' => $order->Member(),
+			'Note'   => \DBField::create_field('HTMLText',
+					\SSViewer::execute_string($note, $this->owner, [
+							'Order' => $order,
+						]
+					)
+				),
+			'isPreview' => true,
+		]);
+
+		$this->owner->extend('updateEmail', $email);
+
+		return $email;
 	}
 
 	public function getDispatchInformation() {
@@ -526,22 +599,14 @@ class OrderStatusLog_EmailPreview implements \DataObjectPreviewInterface
 
 	public function getPreviewHTML()
 	{
-		$member = $this->record->Order()->Member();
-		if (\Config::inst()->get('OrderProcessor', 'receipt_email')) {
-			$adminEmail = \Config::inst()->get('OrderProcessor', 'receipt_email');
-		} else {
-			$adminEmail = \Email::config()->admin_email;
-		}
-		$e = new \Order_statusEmail();
-		$e->populateTemplate([
-			"Order"  => $this->record->Order(),
-			"Member" => $member,
-			"Note"   => $this->record->Note,
-		]);
-		$e->setFrom($adminEmail);
-		$e->setSubject($this->record->Subject);
-		$e->setTo($member->Email);
+		if($this->record->Sent)
+			return $this->record->Send_Body;
 
-		return $e->renderWith($e->getTemplate());
+		$email = $this->record->Email;
+
+		\Requirements::clear();
+		$preview = $email->renderWith($email->getTemplate());
+		\Requirements::restore();
+		return $preview;
 	}
 }

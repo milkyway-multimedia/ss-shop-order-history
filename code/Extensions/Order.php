@@ -16,6 +16,12 @@ use Milkyway\SS\GridFieldUtils\HelpButton;
  */
 class Order extends \DataExtension
 {
+	private static $casting = [
+		'BillingAddress' => 'HTMLText',
+		'ShippingAddress' => 'HTMLText',
+		'DispatchInformation' => 'HTMLText',
+	];
+
 	protected $workingLogs = [];
 
 	public function getState()
@@ -30,7 +36,7 @@ class Order extends \DataExtension
 	public function updateCMSFields(\FieldList $fields)
 	{
 		if (!$this->owner->IsCart())
-			$fields->replaceField('Status', \ReadonlyField::create('READONLY-State', 'Status', $this->owner->State)->addExtraClass('important')->setDescription(_t('Order.DESC-State', 'The status of your order is controlled by the order logging system. <a href="{logTab}">You can add a new log here.</a>', ['logTab' => Director::url('#tab-Root_Logs')])));
+			$fields->replaceField('Status', \ReadonlyField::create('READONLY-State', 'Status', $this->owner->State)->addExtraClass('important')->setDescription(_t('Order.DESC-State', 'The status of your order is controlled by the order logging system. <a href="{logTab}" class="ss-tabset-goto">You can add a new log here.</a>', ['logTab' => Director::url('#tab-Root_Logs')])));
 
 		Assets::include_font_css();
 		$maxRecords = \OrderStatusLog::config()->max_records_per_order;
@@ -52,7 +58,7 @@ class Order extends \DataExtension
 
 		if($shippingLog = $this->owner->OrderStatusLogs()->filter('Status', OrderStatusLog::SHIPPED_STATUS)->first()) {
 			$shippingDate = $shippingLog->DispatchedOn ?: $shippingLog->Created;
-			$gfc->addComponent((new HelpButton('buttons-before-right', 'Shipped: ' . $shippingDate, 'shipping-details'))->setContent($shippingLog->TrackingInformation));
+			$gfc->addComponent((new HelpButton('buttons-before-right', 'Shipped: ' . $shippingDate, 'shipping-details'))->setContent($shippingLog->DispatchInformation));
 		}
 		else {
 			$gfc->addComponent(new GridFieldAddNewButton('buttons-before-right', 'Send shipping details', $shippingDF));
@@ -111,9 +117,9 @@ class Order extends \DataExtension
 								$dataFields['Note']
 									->setRows(4)
 									->setValue(
-										'$Order.Reference has been shipped to the following address:'
+										'[b]$Order.Reference[/b] has been shipped to the following address:'
 										. "\n"
-										. '$Order.ShippingAddress'
+										. '[b]$Order.ShippingAddress.Title[/b]'
 										. "\n\n"
 										. '$DispatchInformation'
 									);
@@ -124,6 +130,15 @@ class Order extends \DataExtension
 
 							if(isset($dataFields['Send']))
 								$dataFields['Send']->setValue(true);
+
+							$form->saveInto($record);
+
+							$form->Fields()->removeByName(get_class($record) . '_EmailPreview');
+							$form->Fields()->insertAfter(\DataObjectPreviewField::create(
+								get_class($record) . '_EmailPreview',
+								new OrderStatusLog_EmailPreview($record),
+								new \DataObjectPreviewer(new OrderStatusLog_EmailPreview($record))
+							), 'Send_Body');
 						}
 					}
 				}
