@@ -1,0 +1,9 @@
+{
+    "name":            "milkyway-multimedia/ss-mwm",
+    "version":         "0.1.0",
+    "private":         true,
+    "dependencies":    {},
+    "devDependencies": {
+        "bootstrap": "~3"
+    }
+}

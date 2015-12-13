@@ -1,29 +1,32 @@
 {
-	"name"        : "milkyway-multimedia/ss-shop-order-history",
-	"description" : "A basic history and communication record for orders",
-	"type"        : "silverstripe-module",
-	"keywords"    : [
-		"silverstripe",
-		"mwm",
-		"shop",
-		"ecommerce",
-		"orders"
-	],
-	"license"     : "MIT",
-	"authors"     : [
-		{
-			"name"  : "Mellisa Hankins",
-			"email" : "mell@milkywaymultimedia.com.au"
-		}
-	],
-	"require"     : {
-		"silverstripe/framework"                  : "~3.1",
-		"heyday/silverstripe-dataobjectpreview"   : "~1",
-		"milkyway-multimedia/ss-gridfield-utils"  : "dev-master",
-		"milkyway-multimedia/ss-mwm-autocomplete" : "dev-master",
-		"milkyway-multimedia/ss-mwm"              : "dev-master"
-	},
-	"extra"       : {
-		"installer-name" : "shop-order-history"
-	}
+  "name"       : "milkyway-multimedia/ss-shop-order-history",
+  "description": "A basic history and communication record for orders",
+  "type"       : "silverstripe-module",
+  "keywords"   : [
+    "silverstripe",
+    "mwm",
+    "shop",
+    "ecommerce",
+    "orders"
+  ],
+  "license"    : "MIT",
+  "authors"    : [
+    {
+      "name" : "Mellisa Hankins",
+      "email": "mell@milkywaymultimedia.com.au"
+    }
+  ],
+  "require"    : {
+    "burnbright/silverstripe-shop"          : "~1.2",
+    "heyday/silverstripe-dataobjectpreview" : "~1",
+    "milkyway-multimedia/ss-gridfield-utils": "~0.3",
+    "milkyway-multimedia/ss-mwm-formfields" : "~0.2",
+    "milkyway-multimedia/ss-mwm"            : "~0.3"
+  },
+  "extra"      : {
+    "installer-name": "shop-order-history",
+    "branch-alias"  : {
+      "dev-master": "0.2.x-dev"
+    }
+  }
 }

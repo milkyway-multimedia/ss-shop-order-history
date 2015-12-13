@@ -17,7 +17,7 @@ Add the following to your composer.json file
 ```
 
     "require"          : {
-		"milkyway-multimedia/ss-shop-order-history": "dev-master"
+		"milkyway-multimedia/ss-shop-order-history": "~0.2"
 	}
 
 ```
@@ -26,7 +26,7 @@ Add the following to your composer.json file
 * MIT
 
 ## Version
-* Version 0.1 - Alpha
+* Version 0.2 (Alpha)
 
 ## Contact
 #### Milkyway Multimedia
