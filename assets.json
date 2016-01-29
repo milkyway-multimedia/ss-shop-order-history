@@ -1,7 +1,16 @@
 {
-    "css" : [
+    "css": [
         {
+            "watch" : [
+                "_assets/css/**/*.less",
+                "_assets/css/**/*.scss"
+            ],
             "dest" : "css"
+        }
+    ],
+    "js" : [
+        {
+            "dest": "js"
         }
     ]
 }

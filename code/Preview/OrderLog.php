@@ -2,16 +2,16 @@
 
 /**
  * Milkyway Multimedia
- * OrderStatusLog.php
+ * OrderLog.php
  *
  * @package milkyway-multimedia/ss-shop-order-history
  * @author Mellisa Hankins <mell@milkywaymultimedia.com.au>
  */
 
 use DataObjectPreviewInterface;
-use OrderStatusLog as Record;
+use OrderLog as Record;
 
-class OrderStatusLog implements DataObjectPreviewInterface
+class OrderLog implements DataObjectPreviewInterface
 {
     protected $record;
 

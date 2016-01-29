@@ -21,11 +21,13 @@ use Milkyway\SS\GridFieldUtils\EditableRow;
 use Milkyway\SS\GridFieldUtils\MinorActionsHolder;
 use Milkyway\SS\GridFieldUtils\HelpButton;
 
+use OrderLog;
+
 class Order extends DataExtension
 {
     private static $casting = [
-        'BillingAddress'      => 'HTMLText',
-        'ShippingAddress'     => 'HTMLText',
+        'BillingAddress' => 'HTMLText',
+        'ShippingAddress' => 'HTMLText',
         'DispatchInformation' => 'HTMLText',
     ];
 
@@ -36,7 +38,7 @@ class Order extends DataExtension
         if ($log = $this->owner->LogsByStatusPriority()->filter('Status:not',
             (array)singleton($this->owner->OrderStatusLogs()->dataClass())->config()->ignore_status_as_state)->first()
         ) {
-            return $log->Status;
+            return ReadonlyField::name_to_label($log->Status);
         } else {
             return $this->owner->Status;
         }
@@ -93,7 +95,7 @@ class Order extends DataExtension
                         $editable = new EditableRow,
                         new MinorActionsHolder('buttons-before-right'),
                         $addNew[] = $button = new AddNewInlineExtended('actions-buttons-before-right',
-                            _t('OrderStatusLog.ACTION-EMAIL', 'Send an email'),
+                            _t('OrderLog.ACTION-EMAIL', 'Send an email'),
                             $log->NotificationFields)
                     )
             ),
@@ -103,44 +105,46 @@ class Order extends DataExtension
         $button->setItemEditFormCallback(function ($form) use ($order, $log) {
             $form->loadDataFrom([
                 'Status' => 'Notified',
-                'Send'   => true,
-                'Note'   => _t('OrderStatusLog.DEFAULT-NOTIFIED-Note', 'Email was sent to customer'),
+                'Send' => true,
+                'Note' => _t('OrderLog.DEFAULT-NOTIFIED-Note', 'Email was sent to customer'),
                 'Public' => true,
             ]);
         });
 
         $gfc->addComponent(
-            (new HelpButton('buttons-before-left', _t('OrderStatusLog.EMAIL_VARIABLES', 'Email helpers')))
+            (new HelpButton('buttons-before-left', _t('OrderLog.EMAIL_VARIABLES', 'Email helpers')))
                 ->setTemplate('OrderStatusLog_EmailHelpers')
         );
 
-        singleton('require')->css(basename(dirname(dirname(dirname(__FILE__)))) . '/css/stylings.css');
+        singleton('require')->css(basename(dirname(dirname(dirname(__FILE__)))) . '/css/admin.css');
 
-        if (!$this->owner->OrderStatusLogs()->filter('Status', OrderStatusLog::SHIPPED_STATUS)->exists()) {
+        if (!$this->owner->OrderStatusLogs()->filter('Status', OrderLog::SHIPPED_STATUS)->exists()) {
             $gfc->addComponent(
                 $minorActions[] = $addNew[] = $button = new AddNewInlineExtended(
                     'actions-buttons-before-right',
-                    _t('OrderStatusLog.ACTION-SHIP', 'Send shipping details'),
+                    _t('OrderLog.ACTION-SHIP', 'Send shipping details'),
                     $log->ShippedToFields
                 )
             );
 
+            $shippedStatus = OrderLog::SHIPPED_STATUS;
+
             $button->urlSegment = 'sendShippingDetails';
-            $button->setItemEditFormCallback(function ($form) use ($order, $log) {
+            $button->setItemEditFormCallback(function ($form) use ($order, $log, $shippedStatus) {
                 $form->loadDataFrom([
-                    'Status' => OrderStatusLog::SHIPPED_STATUS[0],
-                    'Title'  => _t('OrderStatusLog.DEFAULT-SHIPPING-Title', '$Order.Reference has been shipped'),
+                    'Status' => $shippedStatus[0],
+                    'Title'  => _t('OrderLog.DEFAULT-SHIPPING-Title', '$Order.Reference has been shipped'),
                     'Note'   => _t(
-                        'OrderStatusLog.DEFAULT-SHIPPING-Note',
+                        'OrderLog.DEFAULT-SHIPPING-Note',
                         '$Order.Reference[/b] has been shipped to the following address: $Order.ShippingAddress.Title'
                     ),
                     'Public' => true,
 
                     'Send'         => true,
-                    'Send_Subject' => _t('OrderStatusLog.DEFAULT-SHIPPING-Send_Subject',
+                    'Send_Subject' => _t('OrderLog.DEFAULT-SHIPPING-Send_Subject',
                         '$Order.Reference has been shipped'),
                     'Send_Body'    => _t(
-                        'OrderStatusLog.DEFAULT-SHIPPING-Send_Body',
+                        'OrderLog.DEFAULT-SHIPPING-Send_Body',
                         '[b]$Order.Reference[/b] has been shipped to the following address:' . "<br />\n"
                         . '[b]$Order.ShippingAddress.Title[/b]'
                         . "<br /><br />\n\n"
@@ -152,17 +156,17 @@ class Order extends DataExtension
 
         $gfc->addComponent(
             $addNew[] = $button = new AddNewInlineExtended('actions-buttons-before-right',
-                _t('OrderStatusLog.ACTION-QUERY', 'Log a customer query'))
+                _t('OrderLog.ACTION-QUERY', 'Log a customer query'))
         );
 
         $button->urlSegment = 'logQuery';
         $button->setItemEditFormCallback(function ($form) use ($order, $log) {
             $params = [
-                'Status'       => 'Query',
-                'Send'         => true,
-                'Title'        => _t('OrderStatusLog.DEFAULT-QUERY-Title', 'A query was made by the customer'),
-                'Send_Subject' => _t('OrderStatusLog.DEFAULT-QUERY-Subject', 'Query concerning $Order.Reference'),
-                'Public'       => true,
+                'Status' => 'Query',
+                'Send' => true,
+                'Title' => _t('OrderLog.DEFAULT-QUERY-Title', 'A query was made by the customer'),
+                'Send_Subject' => _t('OrderLog.DEFAULT-QUERY-Subject', 'Query concerning $Order.Reference'),
+                'Public' => true,
             ];
 
             $dataFields = $form->Fields()->dataFields();
@@ -177,7 +181,7 @@ class Order extends DataExtension
 
         $gfc->addComponent(
             $addNew[] = new AddNewInlineExtended('actions-buttons-before-right',
-                _t('OrderStatusLog.ACTION-DEFAULT', 'Detailed status update'))
+                _t('OrderLog.ACTION-DEFAULT', 'Detailed status update'))
         );
 
         if ($this->owner->OrderStatusLogs()->count() <= $maxRecords) {
@@ -191,12 +195,12 @@ class Order extends DataExtension
 
         if ($dc = $gfc->getComponentByType('GridFieldDataColumns')) {
             $dc->setDisplayFields([
-                'Title'   => 'Status',
+                'Title' => 'Status',
                 'Created' => 'Date',
             ]);
 
             $dc->setFieldFormatting([
-                'Title'   => '<strong>$Title</strong> $DetailsForDataGrid',
+                'Title' => '<strong>$Title</strong> $DetailsForDataGrid',
                 'Created' => '<strong>Logged $Created</strong>',
             ]);
         }
@@ -263,7 +267,7 @@ class Order extends DataExtension
         $this->compileChangesAndLog(__FUNCTION__,
             [
                 'Referrer' => isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '',
-                'Method'   => _t('OrderSatus.RECOVERED-' . ucfirst($method), $method),
+                'Method' => _t('OrderSatus.RECOVERED-' . ucfirst($method), $method),
             ], true);
     }
 
@@ -355,13 +359,14 @@ class Order extends DataExtension
         if ($this->owner->isChanged('Status') || !in_array($event, (array)$log->config()->ignored_events)) {
             $logs = $this->owner->OrderStatusLogs();
             $max = $log->config()->max_records_per_order ?: 50;
-            $count = $logs->filter('Status', OrderStatusLog::GENERIC_STATUS)->count();
+            $count = $logs->filter('Status', OrderLog::GENERIC_STATUS)->count();
 
             // Clean if its over the max limit of history allowed
             if ($max && $count >= $max) {
                 $logs->filter([
-                    'Status'  => OrderStatusLog::GENERIC_STATUS,
-                    'ID:not'  => $logs->filter('Status', OrderStatusLog::GENERIC_STATUS)->sort('Created DESC')->limit($max)->column('ID'),
+                    'Status' => OrderLog::GENERIC_STATUS,
+                    'ID:not' => $logs->filter('Status',
+                        OrderLog::GENERIC_STATUS)->sort('Created DESC')->limit($max)->column('ID'),
                 ])->removeAll();
             }
 
@@ -402,7 +407,7 @@ class Order extends DataExtension
             $statuses = (array)singleton($order->OrderStatusLogs()->dataClass())->config()->order_status_by_completion;
 
             if (!empty($statuses)) {
-                $sql = '(CASE "Status"' . " \n";
+                $sql = '(CASE "OrderLog"."Status"' . " \n";
                 $i = 1;
 
                 foreach ($statuses as $status) {
@@ -439,4 +444,4 @@ class Order extends DataExtension
 
         return $this->owner->BillingAddress();
     }
-} 
+}

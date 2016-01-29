@@ -1,0 +1,64 @@
+body {
+    height: 100% !important;
+    width: 100% !important;
+    margin: 0;
+    padding: 0;
+    -ms-text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
+}
+
+.ExternalClass {
+    width: 100%;
+    background-color: @body-bg;
+    line-height: 100%;
+
+    p, span, font, td, div {
+        line-height: 100%;
+    }
+}
+
+.ReadMsgBody {
+    width: 100%;
+    background-color: @body-bg;
+}
+
+img {
+    -ms-interpolation-mode: bicubic;
+    border: 0 none;
+    line-height: 100%;
+    outline: 0;
+    text-decoration: none;
+    max-width: 100%;
+    height: auto;
+
+    a & {
+        border: 0 none;
+    }
+}
+
+.imageFix, [class=imageFix] {
+    display: block;
+}
+
+table, td {
+    border-collapse: collapse;
+    mso-table-lspace: 0pt;
+    mso-table-rspace: 0pt;
+}
+
+#body, table[id=body] {
+    height: 100% !important;
+    margin: 0;
+    padding: 0;
+    width: 100% !important;
+}
+
+#outlook a {
+    padding: 0;
+}
+
+a {
+    word-break: break-all;
+    word-break: break-word;
+    hyphens: auto;
+}

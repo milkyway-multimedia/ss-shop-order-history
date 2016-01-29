@@ -1,7 +1,0 @@
----
-Name: shop-order-history--injector
-Before: 'shop/*'
----
-Injector:
-  OrderStatusLog:
-    class: 'Milkyway\SS\Shop\OrderHistory\Overrides\OrderStatusLog'

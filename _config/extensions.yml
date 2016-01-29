@@ -3,13 +3,23 @@ Name: shop-order-history--extensions
 Before: 'shop/*'
 ---
 Order:
+  has_many:
+    OrderStatusLogs: OrderLog
   extensions:
     - Milkyway\SS\Shop\OrderHistory\Extensions\Order
-
-OrderStatusLog:
-  extensions:
-    - Milkyway\SS\Shop\OrderHistory\Extensions\OrderStatusLog
 
 OrderItem:
   extensions:
     - Milkyway\SS\Shop\OrderHistory\Extensions\OrderItem
+
+OrderActionsForm:
+  extensions:
+    - Milkyway\SS\Shop\OrderHistory\Extensions\OrderFormActions
+
+CheckoutPage_Controller:
+  extensions:
+    - Milkyway\SS\Shop\OrderHistory\Extensions\OrderManipulation
+
+AccountPage_Controller:
+  extensions:
+    - Milkyway\SS\Shop\OrderHistory\Extensions\OrderManipulation

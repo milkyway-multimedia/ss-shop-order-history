@@ -1,0 +1,22 @@
+@import (reference) "../../../bower_components/bootstrap/less/mixins";
+@import (reference) "../../../bower_components/bootstrap/less/variables";
+@import (reference) "../../../bower_components/bootstrap/less/type";
+
+.order-status-log--email-helpers {
+  &:extend(dl all);
+  &:extend(.dl-horizontal all);
+}
+
+.order-status-log--email-helpers--title {
+  font-weight: bold;
+
+  h3& {
+    text-align: center;
+  }
+}
+
+.order-status-log--email-helpers--list {
+  list-style-type: disc;
+  list-style-position: inside;
+  margin: @padding-base-horizontal;
+}

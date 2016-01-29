@@ -4,12 +4,18 @@ Silverstripe Shop Order History
 
 This makes a few changes to the current order processing within the shop module, in that the main source of status logging is via the status log, rather than through the Order itself. This allows users to set up their own statuses. If you do not like this idea, you can always decorate the OrderStatusLog class and replace the field with a dropdown.
 
+# IMPORTANT NOTE
+This completely replaces the OrderStatusLog class with the OrderLog class. It is not actually used very much in the default module, I have made it more useful for my specific use cases.
+
 ## Features
 A few of the features this module provides includes:
 
 1. Full history - plugs in to Order events (and also relevant objects such as member, items, modifiers, address and payment depending on event)
 2. Communication log - send emails via the CMS related to orders
 3. Attach tracking number to orders
+4. New front end actions for order owners
+   - Forward via email
+   - Print order
 
 ## Install
 Add the following to your composer.json file
@@ -22,11 +28,36 @@ Add the following to your composer.json file
 
 ```
 
+## Usage
+
+### Enabling the new front end actions
+These have to be added manually as extensions to: `Milkyway\SS\Shop\OrderHistory\Actions\Handler` in your _config.yml file
+
+#### Enable forward via email
+
+```
+
+    Milkyway\SS\Shop\OrderHistory\Actions\Handler:
+      extensions:
+        - Milkyway\SS\Shop\OrderHistory\Actions\ForwardViaEmail
+
+```
+
+#### Enable printing
+
+```
+
+    Milkyway\SS\Shop\OrderHistory\Actions\Handler:
+      extensions:
+        - Milkyway\SS\Shop\OrderHistory\Actions\Printable
+
+```
+
 ## License
 * MIT
 
 ## Version
-* Version 0.2 (Alpha)
+* Version 0.3 (Alpha)
 
 ## Contact
 #### Milkyway Multimedia
