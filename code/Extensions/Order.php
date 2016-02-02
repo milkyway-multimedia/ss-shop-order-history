@@ -67,7 +67,7 @@ class Order extends DataExtension
             $state = $this->owner->State;
             $stateLog = $this->owner->StateLog;
 
-            if (in_array($state, OrderLog::ARCHIVED_STATUS)) {
+            if (in_array($state, OrderLog::$ARCHIVED_STATUS)) {
                 $fields->insertBefore('Status', \FormMessageField::create('IS-ARCHIVED',
                     _t('OrderLog.ORDER_IS_ARCHIVED', 'This order was archived on <strong>{date}</strong>', [
                         'date' => $stateLog->Created,
@@ -140,7 +140,7 @@ class Order extends DataExtension
 
         singleton('require')->css(basename(dirname(dirname(dirname(__FILE__)))) . '/css/admin.css');
 
-        if (!$this->owner->OrderStatusLogs()->filter('Status', OrderLog::SHIPPED_STATUS)->exists()) {
+        if (!$this->owner->OrderStatusLogs()->filter('Status', OrderLog::$SHIPPED_STATUS)->exists()) {
             $gfc->addComponent(
                 $minorActions[] = $addNew[] = $button = new AddNewInlineExtended(
                     'actions-buttons-before-right',
@@ -149,7 +149,7 @@ class Order extends DataExtension
                 )
             );
 
-            $shippedStatus = OrderLog::SHIPPED_STATUS;
+            $shippedStatus = OrderLog::$SHIPPED_STATUS;
 
             $button->urlSegment = 'sendShippingDetails';
             $button->setItemEditFormCallback(function ($form) use ($order, $log, $shippedStatus) {
@@ -243,13 +243,6 @@ class Order extends DataExtension
                 }
             });
         }
-
-        $fields->addFieldsToTab('Root.Main', RightSidebar::create('Information'));
-        $fields->fieldByName('Root.Main')->addExtraClass('orders-cms-main');
-
-        $fields->addFieldsToTab('Root.Main.Information', [
-            ReadonlyField::create('testField', 'Boo'),
-        ]);
     }
 
     public function onStartOrder()
@@ -453,14 +446,14 @@ class Order extends DataExtension
         if ($this->owner->isChanged('Status') || !in_array($event, (array)$log->config()->ignored_events)) {
             $logs = $this->owner->OrderStatusLogs();
             $max = $log->config()->max_records_per_order ?: 50;
-            $count = $logs->filter('Status', OrderLog::GENERIC_STATUS)->count();
+            $count = $logs->filter('Status', OrderLog::$GENERIC_STATUS)->count();
 
             // Clean if its over the max limit of history allowed
             if ($max && $count >= $max) {
                 $logs->filter([
-                    'Status' => OrderLog::GENERIC_STATUS,
+                    'Status' => OrderLog::$GENERIC_STATUS,
                     'ID:not' => $logs->filter('Status',
-                        OrderLog::GENERIC_STATUS)->sort('Created DESC')->limit($max)->column('ID'),
+                        OrderLog::$GENERIC_STATUS)->sort('Created DESC')->limit($max)->column('ID'),
                 ])->removeAll();
             }
 

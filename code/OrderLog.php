@@ -152,29 +152,29 @@ class OrderLog extends OrderStatusLog
     private static $max_records_per_order = 50;
 
     // This is the generic status of an order, and is reserved for automatic updates
-    const GENERIC_STATUS = [
+    public static $GENERIC_STATUS = [
         'Updated',
     ];
 
     // These are reserved statuses that change the mode of the Order, hence cannot be added by the user
-    const RESERVED_STATUS = [
+    public static $RESERVED_STATUS = [
         'Started',
         'Completed',
         'Cancelled',
     ];
 
     // Automated status with details attached
-    const DETAILED_STATUS = [
+    public static $DETAILED_STATUS = [
         'Paid',
         'Processing',
         'Placed',
     ];
 
-    const SHIPPED_STATUS = [
+    public static $SHIPPED_STATUS = [
         'Shipped',
     ];
 
-    const ARCHIVED_STATUS = [
+    public static $ARCHIVED_STATUS = [
         'Archived',
     ];
 
@@ -196,7 +196,7 @@ class OrderLog extends OrderStatusLog
 
             // Check if readonly
             $editable = $this->canEdit();
-            $simplified = !Permission::check('ADMIN') && $this->Automated && !in_array($this->Status, self::DETAILED_STATUS);
+            $simplified = !Permission::check('ADMIN') && $this->Automated && !in_array($this->Status, static::$DETAILED_STATUS);
 
             $dataFields = $fields->dataFields();
 
@@ -256,7 +256,7 @@ class OrderLog extends OrderStatusLog
                     $statusField->setDescription(_t('OrderLog.DESC-Status',
                         'Note: {updated} is a special status. If there are more than {limit} logs for an order, it will automatically delete statuses classed as {updated}, so use with caution.',
                         [
-                            'updated' => implode(', ', (array)static::GENERIC_STATUS),
+                            'updated' => implode(', ', (array)static::$GENERIC_STATUS),
                             'limit'   => $this->config()->max_records_per_order,
                         ]));
                 }
@@ -525,7 +525,7 @@ class OrderLog extends OrderStatusLog
             $this->Status = _t('OrderHistory.STATUS-' . $event,
                 $this->config()->status_mapping_for_events[$event]);
         } else {
-            $generic = self::GENERIC_STATUS;
+            $generic = static::$GENERIC_STATUS;
             $this->Status = $generic[0];
         }
 
