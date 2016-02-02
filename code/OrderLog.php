@@ -58,6 +58,9 @@ class OrderLog extends OrderStatusLog
         'onPaid'       => 'Paid',
         'onCancelled'  => 'Cancelled',
         'onRecovered'  => 'Restarted',
+        'onForwardViaEmail' => 'ForwardedViaEmail',
+        'onPrintByCustomer' => 'PrintedByCustomer',
+        'onRepeatByCustomer' => 'RepeatedByCustomer',
     ];
 
     private static $status_list = [

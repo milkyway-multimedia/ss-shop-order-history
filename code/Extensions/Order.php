@@ -9,9 +9,13 @@
  */
 
 use Object;
+use SS_Datetime as Datetime;
 use DataExtension;
 use FieldList;
+use Member;
 use ReadonlyField;
+use RightSidebar;
+use HasOneCompositeField;
 
 use GridField;
 use GridFieldConfig_RecordEditor;
@@ -22,12 +26,13 @@ use Milkyway\SS\GridFieldUtils\MinorActionsHolder;
 use Milkyway\SS\GridFieldUtils\HelpButton;
 
 use OrderLog;
+use ShopConfig;
 
 class Order extends DataExtension
 {
     private static $casting = [
-        'BillingAddress' => 'HTMLText',
-        'ShippingAddress' => 'HTMLText',
+        'BillingAddress'      => 'HTMLText',
+        'ShippingAddress'     => 'HTMLText',
         'DispatchInformation' => 'HTMLText',
     ];
 
@@ -35,13 +40,22 @@ class Order extends DataExtension
 
     public function getState()
     {
-        if ($log = $this->owner->LogsByStatusPriority()->filter('Status:not',
-            (array)singleton($this->owner->OrderStatusLogs()->dataClass())->config()->ignore_status_as_state)->first()
-        ) {
+        if ($log = $this->owner->StateLog) {
             return ReadonlyField::name_to_label($log->Status);
         } else {
             return $this->owner->Status;
         }
+    }
+
+    public function getStateLog()
+    {
+        return
+            $this
+                ->owner
+                ->LogsByStatusPriority()
+                ->filter('Status:not',
+                    (array)singleton($this->owner->OrderStatusLogs()->dataClass())->config()->ignore_status_as_state)
+                ->first();
     }
 
     public function updateCMSFields(FieldList $fields)
@@ -51,6 +65,14 @@ class Order extends DataExtension
 
         if (!$this->owner->IsCart()) {
             $state = $this->owner->State;
+            $stateLog = $this->owner->StateLog;
+
+            if (in_array($state, OrderLog::ARCHIVED_STATUS)) {
+                $fields->insertBefore('Status', \FormMessageField::create('IS-ARCHIVED',
+                    _t('OrderLog.ORDER_IS_ARCHIVED', 'This order was archived on <strong>{date}</strong>', [
+                        'date' => $stateLog->Created,
+                    ]), 'info')->cms());
+            }
 
             if (isset($log->config()->status_list[$state])) {
                 $state = $log->config()->status_list[$state]['icon'] . ' ' . $log->config()->status_list[$state]['title'];
@@ -105,8 +127,8 @@ class Order extends DataExtension
         $button->setItemEditFormCallback(function ($form) use ($order, $log) {
             $form->loadDataFrom([
                 'Status' => 'Notified',
-                'Send' => true,
-                'Note' => _t('OrderLog.DEFAULT-NOTIFIED-Note', 'Email was sent to customer'),
+                'Send'   => true,
+                'Note'   => _t('OrderLog.DEFAULT-NOTIFIED-Note', 'Email was sent to customer'),
                 'Public' => true,
             ]);
         });
@@ -132,14 +154,13 @@ class Order extends DataExtension
             $button->urlSegment = 'sendShippingDetails';
             $button->setItemEditFormCallback(function ($form) use ($order, $log, $shippedStatus) {
                 $form->loadDataFrom([
-                    'Status' => $shippedStatus[0],
-                    'Title'  => _t('OrderLog.DEFAULT-SHIPPING-Title', '$Order.Reference has been shipped'),
-                    'Note'   => _t(
+                    'Status'       => $shippedStatus[0],
+                    'Title'        => _t('OrderLog.DEFAULT-SHIPPING-Title', '$Order.Reference has been shipped'),
+                    'Note'         => _t(
                         'OrderLog.DEFAULT-SHIPPING-Note',
                         '$Order.Reference[/b] has been shipped to the following address: $Order.ShippingAddress.Title'
                     ),
-                    'Public' => true,
-
+                    'Public'       => true,
                     'Send'         => true,
                     'Send_Subject' => _t('OrderLog.DEFAULT-SHIPPING-Send_Subject',
                         '$Order.Reference has been shipped'),
@@ -162,11 +183,11 @@ class Order extends DataExtension
         $button->urlSegment = 'logQuery';
         $button->setItemEditFormCallback(function ($form) use ($order, $log) {
             $params = [
-                'Status' => 'Query',
-                'Send' => true,
-                'Title' => _t('OrderLog.DEFAULT-QUERY-Title', 'A query was made by the customer'),
+                'Status'       => 'Query',
+                'Send'         => true,
+                'Title'        => _t('OrderLog.DEFAULT-QUERY-Title', 'A query was made by the customer'),
                 'Send_Subject' => _t('OrderLog.DEFAULT-QUERY-Subject', 'Query concerning $Order.Reference'),
-                'Public' => true,
+                'Public'       => true,
             ];
 
             $dataFields = $form->Fields()->dataFields();
@@ -195,12 +216,12 @@ class Order extends DataExtension
 
         if ($dc = $gfc->getComponentByType('GridFieldDataColumns')) {
             $dc->setDisplayFields([
-                'Title' => 'Status',
+                'Title'   => 'Status',
                 'Created' => 'Date',
             ]);
 
             $dc->setFieldFormatting([
-                'Title' => '<strong>$Title</strong> $DetailsForDataGrid',
+                'Title'   => '<strong>$Title</strong> $DetailsForDataGrid',
                 'Created' => '<strong>Logged $Created</strong>',
             ]);
         }
@@ -222,6 +243,13 @@ class Order extends DataExtension
                 }
             });
         }
+
+        $fields->addFieldsToTab('Root.Main', RightSidebar::create('Information'));
+        $fields->fieldByName('Root.Main')->addExtraClass('orders-cms-main');
+
+        $fields->addFieldsToTab('Root.Main.Information', [
+            ReadonlyField::create('testField', 'Boo'),
+        ]);
     }
 
     public function onStartOrder()
@@ -262,12 +290,78 @@ class Order extends DataExtension
         $this->compileChangesAndLog(__FUNCTION__, [], true);
     }
 
+    public function onForwardViaEmail($email)
+    {
+        if (ShopConfig::config()->dont_record_email_forwards) {
+            return;
+        }
+
+        $log = Object::create($this->owner->OrderStatusLogs()->dataClass());
+        $log->Status = 'ForwardedViaEmail';
+        $log->Title = 'Forwarded to: ' . $email->To();
+        $log->Note = implode("\n", [
+            'To: ' . $email->To(),
+            'From: ' . $email->From(),
+            $email->Cc() ? 'Cc: ' . $email->Cc() : '',
+            'Subject: ' . $email->Subject(),
+        ]);
+        $log->Public = true;
+        $log->Send = false;
+        $log->Sent = Datetime::now();
+        $log->Send_To = $email->To();
+        $log->Send_From = $email->From();
+        $log->Send_Subject = $email->Subject();
+        $log->Send_Body = $email->Body();
+        $log->AuthorID = Member::currentUserID();
+        $log->OrderID = $this->owner->ID;
+        $log->write();
+    }
+
+    public function onPrintByCustomer()
+    {
+        if (ShopConfig::config()->dont_record_first_order_print || $this->owner->OrderStatusLogs()->filter('Status',
+                'PrintedByCustomer')->limit(1)->exists()
+        ) {
+            return;
+        }
+
+        $log = Object::create($this->owner->OrderStatusLogs()->dataClass());
+        $log->Status = 'PrintedByCustomer';
+        $log->Title = 'Printed By Customer';
+        $log->Automated = true;
+        $log->Public = true;
+        $log->Send = false;
+        $log->AuthorID = Member::currentUserID();
+        $log->OrderID = $this->owner->ID;
+        $log->write();
+    }
+
+    public function onRepeatByCustomer($oldOrder)
+    {
+        if (ShopConfig::config()->dont_record_order_repeats) {
+            return;
+        }
+
+        $log = Object::create($this->owner->OrderStatusLogs()->dataClass());
+        $log->Note = _t('OrderLog.NOTE-REPEAT', 'Original Order: <a href="{link}">{reference}</a>', [
+            'link' => $oldOrder->Link(),
+            'reference' => $oldOrder->Reference,
+        ]);
+        $log->Status = 'RepeatedByCustomer';
+        $log->Title = 'Repeated By Customer';
+        $log->Public = true;
+        $log->Send = false;
+        $log->AuthorID = Member::currentUserID();
+        $log->OrderID = $this->owner->ID;
+        $log->write();
+    }
+
     public function onRecovered($method)
     {
         $this->compileChangesAndLog(__FUNCTION__,
             [
                 'Referrer' => isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '',
-                'Method' => _t('OrderSatus.RECOVERED-' . ucfirst($method), $method),
+                'Method'   => _t('OrderSatus.RECOVERED-' . ucfirst($method), $method),
             ], true);
     }
 

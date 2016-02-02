@@ -16,6 +16,7 @@ A few of the features this module provides includes:
 4. New front end actions for order owners
    - Forward via email
    - Print order
+   - Repeat orders
 
 ## Install
 Add the following to your composer.json file
@@ -23,7 +24,7 @@ Add the following to your composer.json file
 ```
 
     "require"          : {
-		"milkyway-multimedia/ss-shop-order-history": "~0.2"
+		"milkyway-multimedia/ss-shop-order-history": "~0.3"
 	}
 
 ```
@@ -50,6 +51,16 @@ These have to be added manually as extensions to: `Milkyway\SS\Shop\OrderHistory
     Milkyway\SS\Shop\OrderHistory\Actions\Handler:
       extensions:
         - Milkyway\SS\Shop\OrderHistory\Actions\Printable
+
+```
+
+#### Enable repeat orders
+
+```
+
+    Milkyway\SS\Shop\OrderHistory\Actions\Handler:
+      extensions:
+        - Milkyway\SS\Shop\OrderHistory\Actions\RepeatOrder
 
 ```
 

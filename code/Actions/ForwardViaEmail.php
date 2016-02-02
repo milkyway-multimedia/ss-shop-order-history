@@ -23,8 +23,6 @@ use RequiredFields;
 use Member;
 use ShopConfig;
 use Email;
-use OrderLog;
-use SS_Datetime as Datetime;
 
 class ForwardViaEmail extends Extension implements HasOrderFormActions
 {
@@ -88,7 +86,7 @@ class ForwardViaEmail extends Extension implements HasOrderFormActions
     {
         $email = $this->buildEmail($form->Data);
         $email->send();
-        $this->recordForward($email);
+        $this->owner->Order->extend('onForwardViaEmail', $email);
 
         $form->sessionMessage(_t('Order.EMAIL_SENT', 'Email has been sent to: {email}', [
             'email' => $email->To(),
@@ -140,31 +138,5 @@ class ForwardViaEmail extends Extension implements HasOrderFormActions
 //        ]))->renderWith('Order_ForwardedEmail'); die;
 
         return $email;
-    }
-
-    protected function recordForward(Email $email) {
-        if(ShopConfig::config()->dont_record_email_forwards) {
-            return;
-        }
-
-        $log = OrderLog::create();
-        $log->Status = 'ForwardedViaEmail';
-        $log->Title = 'Forwarded to: ' . $email->To();
-        $log->Note = implode("\n", [
-            'To: ' . $email->To(),
-            'From: ' . $email->From(),
-            $email->Cc() ? 'Cc: ' . $email->Cc() : '',
-            'Subject: ' . $email->Subject(),
-        ]);
-        $log->Public = true;
-        $log->Send = false;
-        $log->Sent = Datetime::now();
-        $log->Send_To = $email->To();
-        $log->Send_From = $email->From();
-        $log->Send_Subject = $email->Subject();
-        $log->Send_Body = $email->Body();
-        $log->AuthorID = Member::currentUserID();
-        $log->OrderID = $this->owner->Order->ID;
-        $log->write();
     }
 }

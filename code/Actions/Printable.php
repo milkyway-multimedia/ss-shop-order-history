@@ -12,9 +12,6 @@ use Milkyway\SS\Shop\OrderHistory\Contracts\HasOrderFormActions;
 
 use Extension;
 use FormActionLink;
-use ShopConfig;
-use OrderLog;
-use Member;
 
 class Printable extends Extension implements HasOrderFormActions
 {
@@ -25,7 +22,8 @@ class Printable extends Extension implements HasOrderFormActions
     public function printable()
     {
         $dir = $this->dir();
-        $this->recordPrinted();
+
+        $this->owner->Order->extend('onPrintByCustomer');
 
         singleton('require')->clear();
         singleton('require')->css($dir. '/css/printable.css');
@@ -50,22 +48,6 @@ class Printable extends Extension implements HasOrderFormActions
                 ->setForm($form)
                 ->setAttribute('data-print-url', $this->owner->Link('printable'))
         );
-    }
-
-    protected function recordPrinted() {
-        if(ShopConfig::config()->dont_record_first_order_print || OrderLog::get()->filter('Status', 'PrintedByCustomer')->limit(1)->exists()) {
-            return;
-        }
-
-        $log = OrderLog::create();
-        $log->Status = 'PrintedByCustomer';
-        $log->Title = 'Printed By Customer';
-        $log->Automated = true;
-        $log->Public = true;
-        $log->Send = false;
-        $log->AuthorID = Member::currentUserID();
-        $log->OrderID = $this->owner->Order->ID;
-        $log->write();
     }
 
     protected function dir() {
