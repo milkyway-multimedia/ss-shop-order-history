@@ -53,7 +53,7 @@
             <% if $ReceiptForm %>
                 $ReceiptForm
             <% else %>
-                <% include $Cart %>
+                <% include Cart %>
             <% end_if %>
         </div>
     </div>

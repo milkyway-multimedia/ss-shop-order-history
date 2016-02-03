@@ -32,7 +32,7 @@ Add the following to your composer.json file
 ## Usage
 
 ### Enabling the new front end actions
-These have to be added manually as extensions to: `Milkyway\SS\Shop\OrderHistory\Actions\Handler` in your _config.yml file
+These have to be added manually as extensions to: `Milkyway\SS\Shop\OrderHistory\Actions\Handler` in your _config.yml file. By default, these add logs to the order so users/admins know what they have done.
 
 #### Enable forward via email
 

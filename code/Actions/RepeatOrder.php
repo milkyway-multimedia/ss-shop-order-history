@@ -10,13 +10,15 @@
 
 use Milkyway\SS\Shop\OrderHistory\Contracts\HasOrderFormActions;
 
-use Object;
 use Extension;
 use FormActionLink;
 use Session;
 
 use ShoppingCart;
 use CartPage;
+
+use Milkyway\SS\Shop\OrderHistory\Exceptions\ShoppingCartError;
+use Exception;
 
 class RepeatOrder extends Extension implements HasOrderFormActions
 {
@@ -28,36 +30,38 @@ class RepeatOrder extends Extension implements HasOrderFormActions
 
     public function repeat()
     {
-        $currentOrder = $this->owner->Order;
-        $cart = ShoppingCart::curr();
+        try {
+            $currentOrder = $this->owner->Order;
+            $cart = ShoppingCart::curr();
 
-        if($cart && $cart->Items()->exists()) {
-            $newOrder = Object::create($currentOrder->get()->dataClass());
-            $newOrder->write();
-            ShoppingCart::singleton()->setCurrent($newOrder);
-        }
-
-        foreach($currentOrder->Items() as $item) {
-            if($item->hasMethod('Product')) {
-                $buyable = $item->Product(true);
-            }
-            else {
-                $buyable = $item->Buyable();
+            if($cart && $cart->Items()->exists()) {
+                $cart->Items()->removeAll();
             }
 
-            ShoppingCart::singleton()->add($buyable, $item->Quantity);
+            foreach($currentOrder->Items() as $item) {
+                if($item->hasMethod('Product')) {
+                    $buyable = $item->Product(true);
+                }
+                else {
+                    $buyable = $item->Buyable();
+                }
 
-            if(ShoppingCart::singleton()->getMessageType() == 'bad' && $message = ShoppingCart::singleton()->getMessage()) {
-                Session::set($this->sessionVariable, sprintf('%s: <strong>%s</strong>', rtrim($message, '.:'), $item->Buyable()->Title));
-                return $this->owner->redirectBack();
+                ShoppingCart::singleton()->add($buyable, $item->Quantity);
+
+                if($message = ShoppingCartError::get()) {
+                    throw new ShoppingCartError(sprintf('%s: <strong>%s</strong>', rtrim($message, '.:'), $item->Buyable()->Title));
+                }
             }
-        }
 
-        if(!isset($newOrder)) {
-            $newOrder = ShoppingCart::curr();
-        }
+            if(!isset($newOrder)) {
+                $newOrder = ShoppingCart::curr();
+            }
 
-        $newOrder->extend('onRepeatByCustomer', $currentOrder);
+            $newOrder->extend('onRepeatByCustomer', $currentOrder);
+        } catch (Exception $e) {
+            Session::set($this->sessionVariable, $e->getMessage());
+            return $this->owner->redirectBack();
+        }
 
         return $this->owner->redirect(CartPage::find_link());
     }
