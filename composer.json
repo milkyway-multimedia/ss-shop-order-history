@@ -24,7 +24,7 @@
     "milkyway-multimedia/ss-mwm"            : "~0.3"
   },
   "extra"      : {
-    "installer-name": "shop-order-history",
+    "installer-name": "shop_orderhistory",
     "branch-alias"  : {
       "dev-master": "0.3.x-dev"
     }
