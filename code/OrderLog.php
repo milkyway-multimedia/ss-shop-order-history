@@ -555,11 +555,11 @@ class OrderLog extends OrderStatusLog
 
     public function onBeforeWrite()
     {
-        parent::onBeforeWrite();
-
         if (!$this->Title) {
             $this->Title = $this->Status;
         }
+
+        parent::onBeforeWrite();
 
         if (!$this->Sent && $this->Send && $this->Order()->exists() && ($email = $this->Email)) {
             $email->send();
